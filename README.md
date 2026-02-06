@@ -167,18 +167,35 @@ howl/
 
 ## Performance
 
-| Scenario | Execution Time | Notes |
-|----------|----------------|-------|
-| stdin-only | ~10ms | JSON parse + render |
-| + git status | ~50ms | 1s timeout, graceful |
-| + transcript | ~100ms | Last 100 lines only |
-| + OAuth quota | ~3s first, ~10ms cached | 60s cache TTL |
+### Benchmark Results
+
+**Test Environment:**
+- Platform: macOS (Apple Silicon)
+- Go: 1.23.4
+- Runs: 20 iterations (minimal), 10 iterations (full)
+
+| Mode | Min | Max | Average | Budget |
+|------|-----|-----|---------|--------|
+| **Minimal** (stdin-only) | 0ms | 20ms | **6ms** | 300ms (2%) |
+| **Full** (all features) | 30ms | 510ms* | **88ms** | 300ms (29%) |
+
+*First OAuth call (uncached)
+
+### Breakdown by Feature
+
+| Feature | Added Latency | Notes |
+|---------|---------------|-------|
+| JSON parsing + render | ~6ms | Base operation |
+| Git status | +20-40ms | 1s timeout, graceful fail |
+| Transcript parsing | +10-30ms | Last 100 lines only |
+| OAuth quota | +3s (first) / +0ms (cached) | 60s cache TTL |
 
 **Optimizations:**
 - Compiled Go binary (no interpreter startup)
 - Session-scoped caching for external API calls
 - Tail-only transcript parsing (vs full file scan)
 - 1-second timeout on git operations
+- Zero external dependencies (stdlib only)
 
 ---
 
