@@ -6,6 +6,35 @@ import (
 	"time"
 )
 
+func TestSanitizeSessionID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"normal id", "abc-123-def", "abc-123-def"},
+		{"path traversal", "../../../etc/passwd", "passwd"},
+		{"absolute path", "/absolute/path/id", "id"},
+		{"dot", ".", "."},
+		{"double dot", "..", ".."},
+		{"empty", "", "."},
+		{"nested traversal", "foo/../bar", "bar"},
+		{"just slash", "/", "/"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := sanitizeSessionID(tt.input)
+			if got != tt.want {
+				t.Errorf("sanitizeSessionID(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestQuotaColor(t *testing.T) {
 	t.Parallel()
 

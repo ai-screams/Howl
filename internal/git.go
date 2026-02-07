@@ -10,8 +10,13 @@ type GitInfo struct {
 	Dirty  bool
 }
 
-// getGitInfo runs git commands with a tight timeout.
+// GetGitInfo runs git commands with a tight timeout.
 // Returns nil on any failure — git info is optional.
+//
+// NOTE: "git" is intentionally invoked as a bare name (not an absolute path)
+// because its location varies across systems (Homebrew /opt/homebrew/bin,
+// Xcode /usr/bin, Linux distros, nix, etc.). Unlike "security" (macOS-only,
+// fixed at /usr/bin/security), hardcoding git's path would break portability.
 func GetGitInfo(dir string) *GitInfo {
 	if dir == "" {
 		return nil

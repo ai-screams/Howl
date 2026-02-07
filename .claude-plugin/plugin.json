@@ -8,5 +8,12 @@
   "homepage": "https://github.com/ai-screams/Howl",
   "repository": "https://github.com/ai-screams/Howl",
   "license": "MIT",
-  "keywords": ["statusline", "hud", "metrics", "performance", "go"]
+  "keywords": ["statusline", "hud", "metrics", "performance", "go"],
+  "skills": [
+    {
+      "name": "setup",
+      "path": "skills/setup/SKILL.md",
+      "description": "Install and configure Howl statusline HUD"
+    }
+  ]
 }

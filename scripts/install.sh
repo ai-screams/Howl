@@ -71,8 +71,8 @@ if curl -fsSL -o "$TMPDIR_DL/checksums.txt" "$BASE_URL/checksums.txt" 2>/dev/nul
     elif command -v shasum &>/dev/null; then
       ACTUAL=$(shasum -a 256 "$TMPDIR_DL/$ASSET_NAME" | awk '{print $1}')
     else
-      echo "  Warning: No sha256sum or shasum available, skipping checksum verification"
-      ACTUAL="$EXPECTED"
+      echo "Error: No sha256sum or shasum available — cannot verify binary integrity"
+      exit 1
     fi
     if [ "$EXPECTED" != "$ACTUAL" ]; then
       echo "Error: Checksum verification failed"
@@ -82,10 +82,12 @@ if curl -fsSL -o "$TMPDIR_DL/checksums.txt" "$BASE_URL/checksums.txt" 2>/dev/nul
     fi
     echo "  Checksum verified (SHA256)"
   else
-    echo "  Warning: Asset not found in checksums.txt, skipping verification"
+    echo "Error: Asset '$ASSET_NAME' not found in checksums.txt"
+    exit 1
   fi
 else
-  echo "  Warning: Could not download checksums.txt, skipping verification"
+  echo "Error: Could not download checksums.txt for verification"
+  exit 1
 fi
 
 # Install binary

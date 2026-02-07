@@ -3,7 +3,6 @@ package internal
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -78,7 +77,7 @@ func GetUsage(sessionID string) *UsageData {
 		return nil
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1MB max
 	if err != nil {
 		return nil
 	}
@@ -108,7 +107,9 @@ func GetUsage(sessionID string) *UsageData {
 }
 
 func getOAuthToken() string {
-	cmd := exec.Command("security", "find-generic-password",
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "/usr/bin/security", "find-generic-password",
 		"-s", "Claude Code-credentials",
 		"-w")
 	out, err := cmd.Output()
@@ -128,8 +129,12 @@ func getOAuthToken() string {
 	return creds.ClaudeAiOauth.AccessToken
 }
 
+func sanitizeSessionID(sessionID string) string {
+	return filepath.Base(sessionID)
+}
+
 func cacheDir(sessionID string) string {
-	return filepath.Join(os.TempDir(), "howl-"+sessionID)
+	return filepath.Join(os.TempDir(), "howl-"+sanitizeSessionID(sessionID))
 }
 
 func cachePath(sessionID string) string {
@@ -151,67 +156,12 @@ func loadCachedUsage(sessionID string) *UsageData {
 
 func saveCachedUsage(sessionID string, usage *UsageData) {
 	dir := cacheDir(sessionID)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return
 	}
 	data, err := json.Marshal(usage)
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(cachePath(sessionID), data, 0644)
-}
-
-// renderQuota formats 5h/7d remaining percentage for display
-// Format: (2h)5h: 55%/41% :7d(3d5h)
-func renderQuota(u *UsageData) string {
-	// Color based on remaining percentage (lower = more urgent)
-	color5 := quotaColor(u.RemainingPercent5h)
-	color7 := quotaColor(u.RemainingPercent7d)
-
-	// Calculate time until Reset
-	now := time.Now()
-	until5h := formatTimeUntil(now, u.ResetsAt5h)
-	until7d := formatTimeUntil(now, u.ResetsAt7d)
-
-	return fmt.Sprintf("%s(%s)5h:%s %s%.0f%%%s/%s%.0f%%%s %s:7d(%s)%s",
-		dim, until5h, Reset,
-		color5, u.RemainingPercent5h, Reset,
-		color7, u.RemainingPercent7d, Reset,
-		grey, until7d, Reset)
-}
-
-func formatTimeUntil(now, target time.Time) string {
-	if target.IsZero() {
-		return "?"
-	}
-	diff := target.Sub(now)
-	if diff < 0 {
-		return "0"
-	}
-
-	hours := int(diff.Hours())
-	if hours < 24 {
-		return fmt.Sprintf("%dh", hours)
-	}
-	days := hours / 24
-	remainHours := hours % 24
-	if remainHours == 0 {
-		return fmt.Sprintf("%dd", days)
-	}
-	return fmt.Sprintf("%dd%dh", days, remainHours)
-}
-
-func quotaColor(remaining float64) string {
-	switch {
-	case remaining < QuotaCritical:
-		return boldRed
-	case remaining < QuotaLow:
-		return red
-	case remaining < QuotaMedium:
-		return orange
-	case remaining < QuotaHigh:
-		return yellow
-	default:
-		return green
-	}
+	_ = os.WriteFile(cachePath(sessionID), data, 0600)
 }

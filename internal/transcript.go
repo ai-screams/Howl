@@ -1,9 +1,12 @@
 package internal
 
 import (
-	"bufio"
+	"bytes"
 	"encoding/json"
+	"io"
 	"os"
+	"sort"
+	"strings"
 )
 
 type TranscriptEntry struct {
@@ -33,21 +36,9 @@ func ParseTranscript(path string) *ToolInfo {
 		return nil
 	}
 
-	file, err := os.Open(path)
+	lines, err := tailLines(path, 64*1024, 100)
 	if err != nil {
 		return nil
-	}
-	defer func() { _ = file.Close() }()
-
-	// Read last 100 lines (reverse would be better but simple forward scan is OK)
-	lines := make([]string, 0, 100)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-		if len(lines) > 200 {
-			// Keep only last 100
-			lines = lines[len(lines)-100:]
-		}
 	}
 
 	toolCounts := make(map[string]int)
@@ -98,14 +89,9 @@ func ParseTranscript(path string) *ToolInfo {
 	for name, count := range toolCounts {
 		tools = append(tools, toolEntry{name, count})
 	}
-	// Simple bubble sort (good enough for small N)
-	for i := 0; i < len(tools); i++ {
-		for j := i + 1; j < len(tools); j++ {
-			if tools[j].count > tools[i].count {
-				tools[i], tools[j] = tools[j], tools[i]
-			}
-		}
-	}
+	sort.Slice(tools, func(i, j int) bool {
+		return tools[i].count > tools[j].count
+	})
 	if len(tools) > 5 {
 		tools = tools[:5]
 	}
@@ -127,4 +113,48 @@ func ParseTranscript(path string) *ToolInfo {
 		Tools:  topTools,
 		Agents: agents,
 	}
+}
+
+// tailLines reads at most maxBytes from the end of a file and returns the last maxLines lines.
+func tailLines(path string, maxBytes int64, maxLines int) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = file.Close() }()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if stat.Size() <= 0 {
+		return nil, nil
+	}
+
+	start := stat.Size() - maxBytes
+	if start < 0 {
+		start = 0
+	}
+	buf := make([]byte, stat.Size()-start)
+	n, err := file.ReadAt(buf, start)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	buf = buf[:n]
+
+	// If we started mid-line, drop the partial prefix.
+	if start > 0 {
+		if idx := bytes.IndexByte(buf, '\n'); idx >= 0 {
+			buf = buf[idx+1:]
+		}
+	}
+
+	lines := strings.Split(string(buf), "\n")
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+	if len(lines) > maxLines {
+		lines = lines[len(lines)-maxLines:]
+	}
+	return lines, nil
 }

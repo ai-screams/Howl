@@ -1,5 +1,7 @@
 package internal
 
+import "strings"
+
 // StdinData is the top-level JSON structure piped by Claude Code every ~300ms.
 type StdinData struct {
 	SessionID      string        `json:"session_id"`
@@ -78,46 +80,15 @@ func classifyModel(m Model) ModelTier {
 	if name == "" {
 		name = m.ID
 	}
-	for _, c := range name {
-		if c >= 'A' && c <= 'Z' {
-			c += 32
-		}
-		_ = c // just for lowering; we'll use strings below
-	}
-	// simple contains check without importing strings
-	lower := toLower(name)
-	if contains(lower, "opus") {
+	lower := strings.ToLower(name)
+	if strings.Contains(lower, "opus") {
 		return TierOpus
 	}
-	if contains(lower, "sonnet") {
+	if strings.Contains(lower, "sonnet") {
 		return TierSonnet
 	}
-	if contains(lower, "haiku") {
+	if strings.Contains(lower, "haiku") {
 		return TierHaiku
 	}
 	return TierUnknown
-}
-
-func toLower(s string) string {
-	b := make([]byte, len(s))
-	for i := range s {
-		c := s[i]
-		if c >= 'A' && c <= 'Z' {
-			c += 32
-		}
-		b[i] = c
-	}
-	return string(b)
-}
-
-func contains(s, sub string) bool {
-	if len(sub) > len(s) {
-		return false
-	}
-	for i := 0; i <= len(s)-len(sub); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }
