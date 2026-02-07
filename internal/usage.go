@@ -32,9 +32,9 @@ type usageAPIResponse struct {
 }
 
 const (
-	usageAPIURL  = "https://api.anthropic.com/api/oauth/usage"
-	cacheTTL     = 60 * time.Second
-	apiTimeout   = 3 * time.Second
+	usageAPIURL = "https://api.anthropic.com/api/oauth/usage"
+	cacheTTL    = 60 * time.Second
+	apiTimeout  = 3 * time.Second
 )
 
 // getUsage fetches OAuth usage data with session-scoped caching.

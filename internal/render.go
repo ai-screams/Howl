@@ -155,62 +155,6 @@ func renderDangerMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, t
 	return []string{joinParts(line1), joinParts(line2)}
 }
 
-// DEPRECATED: Old 2-line layout (unused)
-// Line 1: [Model] ████████░░░░░░░░ 42% | $0.23 | ⏱ 23m
-func renderLine1(d *StdinData, m Metrics) string {
-	parts := make([]string, 0, 5)
-
-	parts = append(parts, renderModelBadge(d.Model))
-	parts = append(parts, renderContextBar(m.ContextPercent, d.ContextWindow))
-
-	if costStr := renderCost(d.Cost.TotalCostUSD); costStr != "" {
-		parts = append(parts, costStr)
-	}
-
-	parts = append(parts, renderDuration(d.Cost.TotalDurationMS))
-
-	return joinParts(parts)
-}
-
-// Line 2: 📁 project/ git:(main*) | +156/-23 | Cache 89% | API 18%
-func renderLine2(d *StdinData, m Metrics, git *GitInfo) string {
-	parts := make([]string, 0, 6)
-
-	if ws := renderWorkspace(d); ws != "" {
-		parts = append(parts, ws)
-	}
-
-	if git != nil {
-		parts = append(parts, renderGit(git))
-	}
-
-	if lines := renderLineChanges(d.Cost); lines != "" {
-		parts = append(parts, lines)
-	}
-
-	if m.CacheEfficiency != nil {
-		parts = append(parts, renderCacheEfficiency(*m.CacheEfficiency))
-	}
-
-	if m.APIWaitRatio != nil {
-		parts = append(parts, renderAPIRatio(*m.APIWaitRatio))
-	}
-
-	if m.CostPerMinute != nil {
-		parts = append(parts, renderCostVelocity(*m.CostPerMinute))
-	}
-
-	if d.Vim != nil && d.Vim.Mode != "" {
-		parts = append(parts, renderVim(d.Vim.Mode))
-	}
-
-	if d.Agent != nil && d.Agent.Name != "" {
-		parts = append(parts, renderAgent(d.Agent.Name))
-	}
-
-	return joinParts(parts)
-}
-
 func renderModelBadge(m Model) string {
 	name := m.DisplayName
 	if name == "" {
@@ -346,17 +290,6 @@ func renderWorkspace(d *StdinData) string {
 	return grey + name + "/" + Reset
 }
 
-func renderGit(g *GitInfo) string {
-	if g.Branch == "" {
-		return ""
-	}
-	dirty := ""
-	if g.Dirty {
-		dirty = "*"
-	}
-	return fmt.Sprintf("%sgit:(%s%s%s%s)%s", grey, magenta, g.Branch, dirty, grey, Reset)
-}
-
 func renderGitCompact(g *GitInfo) string {
 	if g.Branch == "" {
 		return ""
@@ -375,19 +308,6 @@ func renderLineChanges(c Cost) string {
 	add := formatCount(c.TotalLinesAdded)
 	del := formatCount(c.TotalLinesRemoved)
 	return fmt.Sprintf("%s+%s%s/%s-%s%s", green, add, Reset, red, del, Reset)
-}
-
-func renderCacheEfficiency(pct int) string {
-	var color string
-	switch {
-	case pct >= 80:
-		color = green
-	case pct >= 50:
-		color = yellow
-	default:
-		color = red
-	}
-	return fmt.Sprintf("%sC:%d%%%s", color, pct, Reset)
 }
 
 func renderCacheEfficiencyCompact(pct int) string {
@@ -414,19 +334,6 @@ func renderCacheEfficiencyLabeled(pct int) string {
 		color = red
 	}
 	return fmt.Sprintf("%sCache:%s%d%%%s", grey, color, pct, Reset)
-}
-
-func renderAPIRatio(pct int) string {
-	var color string
-	switch {
-	case pct >= 60:
-		color = red
-	case pct >= 35:
-		color = yellow
-	default:
-		color = green
-	}
-	return fmt.Sprintf("%sAPI:%d%%%s", color, pct, Reset)
 }
 
 func renderAPIRatioCompact(pct int) string {
@@ -494,21 +401,6 @@ func renderResponseSpeed(tokPerSec int) string {
 	return fmt.Sprintf("%s%dtok/s%s", color, tokPerSec, Reset)
 }
 
-func renderVim(mode string) string {
-	var color string
-	switch toLower(mode) {
-	case "normal":
-		color = blue
-	case "insert":
-		color = green
-	case "visual":
-		color = magenta
-	default:
-		color = grey
-	}
-	return color + mode + Reset
-}
-
 func renderVimCompact(mode string) string {
 	var color string
 	m := toLower(mode)
@@ -525,10 +417,6 @@ func renderVimCompact(mode string) string {
 	default:
 		return ""
 	}
-}
-
-func renderAgent(name string) string {
-	return cyan + "@" + name + Reset
 }
 
 func renderAgentCompact(name string) string {
