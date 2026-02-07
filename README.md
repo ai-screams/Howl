@@ -10,6 +10,24 @@ A blazing-fast, feature-rich statusline HUD for [Claude Code](https://code.claud
 
 ---
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Architecture](#architecture)
+- [Performance](#performance)
+- [Development](#development)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [Why Howl?](#why-howl)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+- [Credits](#credits)
+
+---
+
 ## Features
 
 ### 📊 **Intelligent Metrics**
