@@ -23,7 +23,7 @@ const (
 // render produces lines for the statusline.
 // Always 3 lines. Danger mode (85%+) shows extra detail (token breakdown, $/h).
 func Render(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, tools *ToolInfo) []string {
-	if m.ContextPercent >= 85 {
+	if m.ContextPercent >= DangerThreshold {
 		return renderDangerMode(d, m, git, usage, tools)
 	}
 	return renderNormalMode(d, m, git, usage, tools)
@@ -205,7 +205,7 @@ func renderContextBar(percent int, cw ContextWindow) string {
 
 	color := contextColor(percent)
 	prefix := ""
-	if percent >= 85 {
+	if percent >= DangerThreshold {
 		prefix = "🔴 "
 	} else if percent >= 70 {
 		prefix = "⚠ "
@@ -242,9 +242,9 @@ func renderCost(usd float64) string {
 	}
 	var color string
 	switch {
-	case usd >= 5.0:
+	case usd >= SessionCostHigh:
 		color = boldRed
-	case usd >= 1.0:
+	case usd >= SessionCostMedium:
 		color = yellow
 	default:
 		color = white
@@ -313,9 +313,9 @@ func renderLineChanges(c Cost) string {
 func renderCacheEfficiencyCompact(pct int) string {
 	var color string
 	switch {
-	case pct >= 80:
+	case pct >= CacheExcellent:
 		color = green
-	case pct >= 50:
+	case pct >= CacheGood:
 		color = yellow
 	default:
 		color = red
@@ -326,9 +326,9 @@ func renderCacheEfficiencyCompact(pct int) string {
 func renderCacheEfficiencyLabeled(pct int) string {
 	var color string
 	switch {
-	case pct >= 80:
+	case pct >= CacheExcellent:
 		color = green
-	case pct >= 50:
+	case pct >= CacheGood:
 		color = yellow
 	default:
 		color = red
@@ -339,9 +339,9 @@ func renderCacheEfficiencyLabeled(pct int) string {
 func renderAPIRatioCompact(pct int) string {
 	var color string
 	switch {
-	case pct >= 60:
+	case pct >= WaitHigh:
 		color = red
-	case pct >= 35:
+	case pct >= WaitMedium:
 		color = yellow
 	default:
 		color = green
@@ -352,9 +352,9 @@ func renderAPIRatioCompact(pct int) string {
 func renderAPIRatioLabeled(pct int) string {
 	var color string
 	switch {
-	case pct >= 60:
+	case pct >= WaitHigh:
 		color = red
-	case pct >= 35:
+	case pct >= WaitMedium:
 		color = yellow
 	default:
 		color = green
@@ -365,9 +365,9 @@ func renderAPIRatioLabeled(pct int) string {
 func renderCostVelocity(perMin float64) string {
 	var color string
 	switch {
-	case perMin >= 0.50:
+	case perMin >= CostHigh:
 		color = boldRed
-	case perMin >= 0.10:
+	case perMin >= CostMedium:
 		color = yellow
 	default:
 		color = green
@@ -378,9 +378,9 @@ func renderCostVelocity(perMin float64) string {
 func renderCostVelocityLabeled(perMin float64) string {
 	var color string
 	switch {
-	case perMin >= 0.50:
+	case perMin >= CostHigh:
 		color = boldRed
-	case perMin >= 0.10:
+	case perMin >= CostMedium:
 		color = yellow
 	default:
 		color = green
@@ -391,9 +391,9 @@ func renderCostVelocityLabeled(perMin float64) string {
 func renderResponseSpeed(tokPerSec int) string {
 	var color string
 	switch {
-	case tokPerSec >= 60:
+	case tokPerSec >= SpeedFast:
 		color = green // fast
-	case tokPerSec >= 30:
+	case tokPerSec >= SpeedModerate:
 		color = yellow // moderate
 	default:
 		color = orange // slow

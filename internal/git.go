@@ -3,7 +3,6 @@ package internal
 import (
 	"context"
 	"os/exec"
-	"time"
 )
 
 type GitInfo struct {
@@ -18,7 +17,7 @@ func GetGitInfo(dir string) *GitInfo {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), GitTimeout)
 	defer cancel()
 
 	branch := gitBranch(ctx, dir)

@@ -33,8 +33,8 @@ type usageAPIResponse struct {
 
 const (
 	usageAPIURL = "https://api.anthropic.com/api/oauth/usage"
-	cacheTTL    = 60 * time.Second
-	apiTimeout  = 3 * time.Second
+	cacheTTL    = UsageCacheTTL
+	apiTimeout  = UsageAPITimeout
 )
 
 // getUsage fetches OAuth usage data with session-scoped caching.
@@ -201,13 +201,13 @@ func formatTimeUntil(now, target time.Time) string {
 
 func quotaColor(remaining float64) string {
 	switch {
-	case remaining < 10:
+	case remaining < QuotaCritical:
 		return boldRed
-	case remaining < 25:
+	case remaining < QuotaLow:
 		return red
-	case remaining < 50:
+	case remaining < QuotaMedium:
 		return orange
-	case remaining < 75:
+	case remaining < QuotaHigh:
 		return yellow
 	default:
 		return green
