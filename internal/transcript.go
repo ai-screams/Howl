@@ -37,7 +37,7 @@ func ParseTranscript(path string) *ToolInfo {
 	if err != nil {
 		return nil
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Read last 100 lines (reverse would be better but simple forward scan is OK)
 	lines := make([]string, 0, 100)

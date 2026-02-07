@@ -1,6 +1,6 @@
 # Howl
 
-> *"Your AI screams — Howl listens."*
+> _"Your AI screams — Howl listens."_
 
 A blazing-fast, feature-rich statusline HUD for [Claude Code](https://code.claude.com) written in Go. Provides real-time visibility into your AI coding session with intelligent metrics, usage tracking, and adaptive layouts.
 
@@ -20,12 +20,14 @@ A blazing-fast, feature-rich statusline HUD for [Claude Code](https://code.claud
 - **Cost Velocity** — Monitor spending rate ($/minute)
 
 ### 🎯 **Essential Status**
+
 - **Model Tier Badge** — Color-coded Opus (gold) / Sonnet (cyan) / Haiku (green)
 - **Context Health Bar** — Visual 20-char bar with 4-tier gradient
 - **Token Absolutes** — See exact usage (210.0K/1000K) not just percentages
 - **Usage Quota** — Live 5h/7d limits with reset countdowns
 
 ### 🔧 **Workflow Awareness**
+
 - **Git Integration** — Branch name + dirty status (`main*`)
 - **Code Changes** — Track lines added/removed with color coding
 - **Tool Usage** — Top 5 most-used tools (Read, Bash, Edit...)
@@ -33,6 +35,7 @@ A blazing-fast, feature-rich statusline HUD for [Claude Code](https://code.claud
 - **Vim Mode** — N/I/V indicators for modal editing
 
 ### 🎨 **Adaptive Layouts**
+
 - **Normal Mode** (< 85% context) — 2-4 line display (lines added as features activate)
 - **Danger Mode** (85%+ context) — Dense 2-line view with token breakdown and hourly cost
 - **Smart Grouping** — Logical organization of related metrics
@@ -114,14 +117,14 @@ hud/main* | +850/-45 | In:30.0K Out:3.0K Cache:135.0K | 11tok/s | C79% | A24% | 
 
 ### Metrics Explained
 
-| Metric | Meaning | Color Coding |
-|--------|---------|--------------|
-| **Cache:96%** | Prompt cache efficiency (% of input from cache) | Green (80%+), Yellow (50-80%), Red (<50%) |
-| **Wait:41%** | Time spent waiting for API responses | Green (<35%), Yellow (35-60%), Red (60%+) |
-| **Cost:$0.19/m** | API spending rate per minute | Green (<$0.10), Yellow ($0.10-0.50), Red ($0.50+) |
-| **50tok/s** | Output token generation speed | Green (60+), Yellow (30-60), Orange (<30) |
-| **(2h)5h: 55%** | 5-hour quota: 55% remaining, resets in 2 hours | Gradient based on % remaining |
-| **:7d(3d6h)** | 7-day quota: 42% remaining, resets in 3d6h | Gradient based on % remaining |
+| Metric           | Meaning                                         | Color Coding                                      |
+| ---------------- | ----------------------------------------------- | ------------------------------------------------- |
+| **Cache:96%**    | Prompt cache efficiency (% of input from cache) | Green (80%+), Yellow (50-80%), Red (<50%)         |
+| **Wait:41%**     | Time spent waiting for API responses            | Green (<35%), Yellow (35-60%), Red (60%+)         |
+| **Cost:$0.19/m** | API spending rate per minute                    | Green (<$0.10), Yellow ($0.10-0.50), Red ($0.50+) |
+| **50tok/s**      | Output token generation speed                   | Green (60+), Yellow (30-60), Orange (<30)         |
+| **(2h)5h: 55%**  | 5-hour quota: 55% remaining, resets in 2 hours  | Gradient based on % remaining                     |
+| **:7d(3d6h)**    | 7-day quota: 42% remaining, resets in 3d6h      | Gradient based on % remaining                     |
 
 ---
 
@@ -190,27 +193,29 @@ howl/
 ### Benchmark Results
 
 **Test Environment:**
+
 - Platform: macOS (Apple Silicon)
 - Go: 1.23.4
 - Runs: 20 iterations (minimal), 10 iterations (full)
 
-| Mode | Min | Max | Average | Budget |
-|------|-----|-----|---------|--------|
-| **Minimal** (stdin-only) | 0ms | 20ms | **6ms** | 300ms (2%) |
-| **Full** (all features) | 30ms | 510ms* | **88ms** | 300ms (29%) |
+| Mode                     | Min  | Max     | Average  | Budget      |
+| ------------------------ | ---- | ------- | -------- | ----------- |
+| **Minimal** (stdin-only) | 0ms  | 20ms    | **6ms**  | 300ms (2%)  |
+| **Full** (all features)  | 30ms | 510ms\* | **88ms** | 300ms (29%) |
 
-*First OAuth call (uncached)
+\*First OAuth call (uncached)
 
 ### Breakdown by Feature
 
-| Feature | Added Latency | Notes |
-|---------|---------------|-------|
-| JSON parsing + render | ~6ms | Base operation |
-| Git status | +20-40ms | 1s timeout, graceful fail |
-| Transcript parsing | +10-30ms | Last 100 lines only |
-| OAuth quota | +3s (first) / +0ms (cached) | 60s cache TTL |
+| Feature               | Added Latency               | Notes                     |
+| --------------------- | --------------------------- | ------------------------- |
+| JSON parsing + render | ~6ms                        | Base operation            |
+| Git status            | +20-40ms                    | 1s timeout, graceful fail |
+| Transcript parsing    | +10-30ms                    | Last 100 lines only       |
+| OAuth quota           | +3s (first) / +0ms (cached) | 60s cache TTL             |
 
 **Optimizations:**
+
 - Compiled Go binary (no interpreter startup)
 - Session-scoped caching for external API calls
 - Tail-only transcript parsing (vs full file scan)
@@ -224,12 +229,12 @@ howl/
 ### Project Commands
 
 ```bash
-make build        # Compile to build/howl
-make install      # Copy to ~/.claude/hud/howl
-make clean        # Remove build artifacts
-make test         # Smoke test with sample JSON input
-make unit-test    # Run unit tests
-make release-dry  # Test GoReleaser locally (snapshot)
+make build         # Compile to build/howl
+make install       # Copy to ~/.claude/hud/howl
+make clean         # Remove build artifacts
+make test          # Smoke test with sample JSON input
+make unit-test     # Run unit tests
+make release-dry   # Test GoReleaser locally (snapshot)
 make release-check # Validate .goreleaser.yaml
 ```
 
@@ -242,6 +247,7 @@ make release-check # Validate .goreleaser.yaml
 5. Integrate into layout (normal/danger modes)
 
 Example:
+
 ```go
 // metrics.go
 type Metrics struct {
@@ -266,6 +272,7 @@ func renderNewMetric(val int) string {
 ### OAuth Credentials
 
 Howl automatically reads OAuth tokens from macOS Keychain:
+
 - Service: `Claude Code-credentials`
 - Extracted field: `claudeAiOauth.accessToken`
 
@@ -281,21 +288,25 @@ No manual configuration needed if Claude Code is authenticated.
 ## Troubleshooting
 
 ### Quota shows `?`
+
 - OAuth API unavailable or credentials expired
 - Check: `security find-generic-password -s "Claude Code-credentials" -w`
 - Fallback: Quota display is optional, other metrics still work
 
 ### Git branch not showing
+
 - Not a git repository
 - Git timeout (1s) exceeded
 - Solution: Initialize git or ignore (graceful degradation)
 
 ### Tools line empty
+
 - Transcript file not accessible
 - Session just started (no tools used yet)
 - Solution: Wait for tool usage or check transcript path
 
 ### Performance slower than expected
+
 - Large transcript file (>10MB)
 - Network latency for OAuth API
 - Solution: Transcript parses last 100 lines only, quota cached for 60s
@@ -307,12 +318,14 @@ No manual configuration needed if Claude Code is authenticated.
 Howl was created to solve specific pain points with existing Claude Code statusline tools:
 
 ### Problems with claude-hud
+
 - ❌ **Cross-session bugs** — Global cache shared between sessions
 - ❌ **OAuth API blocked** — Missing `anthropic-beta` header
 - ❌ **Limited metrics** — No cache efficiency or wait ratio
 - ❌ **Node.js dependency** — 70ms cold start overhead
 
 ### Howl Solutions
+
 - ✅ **Session isolation** — Cache per `session_id`
 - ✅ **OAuth headers** — Correct `anthropic-beta` header included
 - ✅ **Rich metrics** — 13 distinct indicators across 2-4 display lines

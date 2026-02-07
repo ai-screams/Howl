@@ -1,0 +1,43 @@
+#!/bin/bash
+set -e
+
+GOLANGCI_LINT="${GOLANGCI_LINT:-$(command -v golangci-lint 2>/dev/null || echo "$(go env GOPATH)/bin/golangci-lint")}"
+PRETTIER="${PRETTIER:-$(command -v prettier 2>/dev/null || echo "$(go env GOPATH)/bin/prettier")}"
+
+if [ ! -x "$GOLANGCI_LINT" ]; then
+    echo "pre-commit: golangci-lint not found. Run 'make setup' to install dev tools."
+    exit 1
+fi
+
+if [ ! -x "$PRETTIER" ]; then
+    echo "pre-commit: prettier not found. Run 'make setup' to install dev tools."
+    exit 1
+fi
+
+echo "pre-commit: running checks..."
+
+# Go format check
+if ! "$GOLANGCI_LINT" fmt --diff ./... > /dev/null 2>&1; then
+    echo "pre-commit: Go format issues found. Run 'make fmt' to fix."
+    exit 1
+fi
+
+# Doc format check (YAML, MD, JSON)
+if ! "$PRETTIER" -c -u "**/*.md" "**/*.yaml" "**/*.yml" 2>&1; then
+    echo "pre-commit: doc format issues found. Run 'make fmt-docs' to fix."
+    exit 1
+fi
+
+# Lint
+if ! "$GOLANGCI_LINT" run --timeout=3m ./... 2>&1; then
+    echo "pre-commit: lint issues found. Fix them before committing."
+    exit 1
+fi
+
+# Tests
+if ! go test ./... > /dev/null 2>&1; then
+    echo "pre-commit: tests failed."
+    exit 1
+fi
+
+echo "pre-commit: all checks passed."

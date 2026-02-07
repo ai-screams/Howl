@@ -588,10 +588,10 @@ func TestComputeMetrics(t *testing.T) {
 			},
 			want: Metrics{
 				ContextPercent:  45,
-				CacheEfficiency: intPtr(50),        // 15000*100/(10000+5000+15000) = 50
-				APIWaitRatio:    intPtr(4),         // 5000*100/120000 = 4
-				CostPerMinute:   floatPtr(1.2),     // 2.4 / 2 = 1.2
-				ResponseSpeed:   intPtr(20),        // 100 / 5.0 = 20
+				CacheEfficiency: intPtr(50),    // 15000*100/(10000+5000+15000) = 50
+				APIWaitRatio:    intPtr(4),     // 5000*100/120000 = 4
+				CostPerMinute:   floatPtr(1.2), // 2.4 / 2 = 1.2
+				ResponseSpeed:   intPtr(20),    // 100 / 5.0 = 20
 			},
 		},
 		{
@@ -611,10 +611,10 @@ func TestComputeMetrics(t *testing.T) {
 			},
 			want: Metrics{
 				ContextPercent:  10,
-				CacheEfficiency: nil,           // CurrentUsage is nil
-				APIWaitRatio:    intPtr(0),     // 0 API duration
-				CostPerMinute:   nil,           // < 60000ms
-				ResponseSpeed:   nil,           // API duration is 0
+				CacheEfficiency: nil,       // CurrentUsage is nil
+				APIWaitRatio:    intPtr(0), // 0 API duration
+				CostPerMinute:   nil,       // < 60000ms
+				ResponseSpeed:   nil,       // API duration is 0
 			},
 		},
 		{
@@ -661,10 +661,10 @@ func TestComputeMetrics(t *testing.T) {
 			},
 			want: Metrics{
 				ContextPercent:  87,
-				CacheEfficiency: intPtr(77),        // 135000*100/(30000+10000+135000) ≈ 77
-				APIWaitRatio:    intPtr(15),        // 45000*100/300000 = 15
-				CostPerMinute:   floatPtr(3.0),     // 15.0 / 5 = 3.0
-				ResponseSpeed:   intPtr(11),        // 500 / 45.0 ≈ 11
+				CacheEfficiency: intPtr(77),    // 135000*100/(30000+10000+135000) ≈ 77
+				APIWaitRatio:    intPtr(15),    // 45000*100/300000 = 15
+				CostPerMinute:   floatPtr(3.0), // 15.0 / 5 = 3.0
+				ResponseSpeed:   intPtr(11),    // 500 / 45.0 ≈ 11
 			},
 		},
 		{
@@ -688,10 +688,10 @@ func TestComputeMetrics(t *testing.T) {
 			},
 			want: Metrics{
 				ContextPercent:  100,
-				CacheEfficiency: intPtr(100),       // only cache_read
-				APIWaitRatio:    intPtr(100),       // 100% API time
-				CostPerMinute:   floatPtr(5.0),     // 5.0 / 1 = 5.0
-				ResponseSpeed:   intPtr(2),         // 120 / 60.0 = 2
+				CacheEfficiency: intPtr(100),   // only cache_read
+				APIWaitRatio:    intPtr(100),   // 100% API time
+				CostPerMinute:   floatPtr(5.0), // 5.0 / 1 = 5.0
+				ResponseSpeed:   intPtr(2),     // 120 / 60.0 = 2
 			},
 		},
 	}

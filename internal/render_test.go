@@ -9,10 +9,10 @@ func TestRenderModelBadge(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		model     Model
-		wantColor string
-		wantName  string
+		name       string
+		model      Model
+		wantColor  string
+		wantName   string
 		wantSuffix string
 	}{
 		{
@@ -364,9 +364,9 @@ func TestRenderAgentCompact(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name string
+		name  string
 		agent string
-		want string
+		want  string
 	}{
 		{"short name", "foo", cyan + "@foo" + Reset},
 		{"exactly 8 chars", "abcdefgh", cyan + "@abcdefgh" + Reset},

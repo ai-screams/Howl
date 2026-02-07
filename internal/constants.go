@@ -54,7 +54,7 @@ const (
 
 // External operation timeouts and cache TTL
 const (
-	GitTimeout     = 1 * time.Second  // Git subprocess timeout
-	UsageCacheTTL  = 60 * time.Second // OAuth quota cache duration
+	GitTimeout      = 1 * time.Second  // Git subprocess timeout
+	UsageCacheTTL   = 60 * time.Second // OAuth quota cache duration
 	UsageAPITimeout = 3 * time.Second  // OAuth API request timeout
 )

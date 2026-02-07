@@ -72,7 +72,7 @@ func GetUsage(sessionID string) *UsageData {
 	if err != nil {
 		return nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return nil
@@ -151,12 +151,14 @@ func loadCachedUsage(sessionID string) *UsageData {
 
 func saveCachedUsage(sessionID string, usage *UsageData) {
 	dir := cacheDir(sessionID)
-	os.MkdirAll(dir, 0755)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return
+	}
 	data, err := json.Marshal(usage)
 	if err != nil {
 		return
 	}
-	os.WriteFile(cachePath(sessionID), data, 0644)
+	_ = os.WriteFile(cachePath(sessionID), data, 0644)
 }
 
 // renderQuota formats 5h/7d remaining percentage for display

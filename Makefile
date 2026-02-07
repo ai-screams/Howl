@@ -1,12 +1,14 @@
 BINARY := howl
 BUILD_DIR := build
 INSTALL_DIR := $(HOME)/.claude/hud
+GOLANGCI_LINT ?= $(shell which golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint")
+PRETTIER ?= $(shell which prettier 2>/dev/null || echo "$(shell go env GOPATH)/bin/prettier")
 
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 LDFLAGS := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)
 
-.PHONY: build install clean test unit-test release-dry release-check
+.PHONY: build install clean test unit-test lint fmt fmt-docs check setup release-dry release-check
 
 build:
 	go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY) ./cmd/howl
@@ -26,6 +28,24 @@ test: build
 
 unit-test:
 	go test ./... -v
+
+lint:
+	$(GOLANGCI_LINT) run --timeout=3m ./...
+
+fmt:
+	$(GOLANGCI_LINT) fmt ./...
+
+fmt-docs:
+	$(PRETTIER) -w -u "**/*.md" "**/*.yaml" "**/*.yml"
+
+check: fmt fmt-docs lint unit-test
+	@echo "All checks passed."
+
+setup:
+	git config core.hooksPath .githooks
+	go install github.com/wasilibs/go-prettier/cmd/prettier@latest
+	@echo "Git hooks configured to .githooks/"
+	@echo "Dev tools installed."
 
 release-dry:
 	goreleaser release --snapshot --clean

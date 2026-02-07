@@ -91,7 +91,7 @@ func renderNormalMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, t
 	return lines
 }
 
-func renderDangerMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, tools *ToolInfo) []string {
+func renderDangerMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, _ *ToolInfo) []string {
 	// Line 1: 🔴 [Model] Bar% (tokens) | $cost | duration
 	line1 := make([]string, 0, 4)
 	line1 = append(line1, renderModelBadge(d.Model))
