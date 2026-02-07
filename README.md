@@ -13,7 +13,8 @@ A blazing-fast, feature-rich statusline HUD for [Claude Code](https://code.claud
 ## Features
 
 ### 📊 **Intelligent Metrics**
-- **Cache Efficiency** — Track prompt cache utilization (90%+ = optimal)
+
+- **Cache Efficiency** — Track prompt cache utilization (80%+ = excellent)
 - **API Wait Ratio** — See how much time spent waiting for AI responses
 - **Response Speed** — Real-time tokens/second output rate
 - **Cost Velocity** — Monitor spending rate ($/minute)
@@ -21,7 +22,7 @@ A blazing-fast, feature-rich statusline HUD for [Claude Code](https://code.claud
 ### 🎯 **Essential Status**
 - **Model Tier Badge** — Color-coded Opus (gold) / Sonnet (cyan) / Haiku (green)
 - **Context Health Bar** — Visual 20-char bar with 4-tier gradient
-- **Token Absolutes** — See exact usage (210K/1000K) not just percentages
+- **Token Absolutes** — See exact usage (210.0K/1000K) not just percentages
 - **Usage Quota** — Live 5h/7d limits with reset countdowns
 
 ### 🔧 **Workflow Awareness**
@@ -32,8 +33,8 @@ A blazing-fast, feature-rich statusline HUD for [Claude Code](https://code.claud
 - **Vim Mode** — N/I/V indicators for modal editing
 
 ### 🎨 **Adaptive Layouts**
-- **Normal Mode** (< 85% context) — Clean 3-4 line display
-- **Danger Mode** (85%+ context) — Expanded view with token breakdown
+- **Normal Mode** (< 85% context) — 2-4 line display (lines added as features activate)
+- **Danger Mode** (85%+ context) — Dense 2-line view with token breakdown and hourly cost
 - **Smart Grouping** — Logical organization of related metrics
 
 ---
@@ -81,19 +82,20 @@ Howl runs automatically as a subprocess every ~300ms. No manual interaction need
 
 ### Example Output
 
-**Normal Session (21% context):**
+**Normal Session (21% context) — 4 lines:**
+
 ```
-[Sonnet 4.5 (1M)] | ████░░░░░░░░░░░░░░░░ 21% (210K/1000K) | $32.7 | 2h46m
+[Sonnet 4.5] | ████░░░░░░░░░░░░░░░░ 21% (210.0K/1000K) | $32.7 | 2h46m
 main* | +2.7K/-120 | 50tok/s | (2h)5h: 55%/42% :7d(3d6h)
 Read(9) Bash(8) TaskCreate(4) mcp__context7(3)
 Cache:96% | Wait:41% | Cost:$0.19/m | I
 ```
 
-**Danger Mode (87% context):**
+**Danger Mode (87% context) — 2 lines (dense):**
+
 ```
-🔴 [Opus 4.6] | ████████████████░░ 87% (174K/200K) | $15.7 | 1h23m
-hud/main* | +850/-45 | In:30K Out:3K Cache:135K | 11tok/s | (1h)5h: 25%/18% :7d(2d)
-▶code-writer | Cache:79% | Wait:24% | $11.3/h | I | @code-wri
+🔴 [Opus 4.6] | ████████████████░░ 87% (174.0K/200K) | $15.7 | 1h23m
+hud/main* | +850/-45 | In:30.0K Out:3.0K Cache:135.0K | 11tok/s | C79% | A24% | $11.3/h | I | @code-wri | (1h)5h: 25%/18% :7d(2d)
 ```
 
 ### Metrics Explained
@@ -143,25 +145,29 @@ howl/
 │   └── howl/
 │       └── main.go          # Entry point, orchestration
 ├── internal/
-│   ├── types.go             # StdinData structs
+│   ├── constants.go         # Threshold constants
+│   ├── types.go             # StdinData structs, model classification
 │   ├── metrics.go           # Derived calculations
 │   ├── render.go            # ANSI output generation
 │   ├── git.go               # Git subprocess calls
 │   ├── usage.go             # OAuth quota API
-│   └── transcript.go        # JSONL parsing
-├── docs/                    # Design documents
+│   ├── transcript.go        # JSONL parsing
+│   ├── *_test.go            # Unit tests (78% coverage)
+│   └── testdata/            # JSONL test fixtures
+├── docs/                    # Design & research documents
 ├── Makefile                 # Build automation
 └── go.mod                   # Go module definition
 ```
 
 ### Key Modules
 
-- **types.go** — StdinData schema matching Claude Code's JSON output
-- **metrics.go** — Cache efficiency, API ratio, cost velocity calculations
-- **render.go** — ANSI color codes, adaptive layouts (normal/danger)
-- **git.go** — Branch detection with graceful timeout
-- **usage.go** — Anthropic OAuth API client with session-scoped caching
-- **transcript.go** — Tool usage extraction from conversation history
+- **constants.go** — All threshold constants (danger %, cache %, speed, cost, quotas, timeouts)
+- **types.go** — StdinData schema matching Claude Code's JSON output, model tier classification
+- **metrics.go** — Cache efficiency, API ratio, cost velocity, response speed calculations
+- **render.go** — ANSI color codes, adaptive layouts (normal 2-4 lines / danger 2 lines)
+- **git.go** — Branch detection with graceful 1s timeout
+- **usage.go** — Anthropic OAuth API client with session-scoped 60s caching
+- **transcript.go** — Tool usage extraction from conversation history (last ~100 lines)
 
 ---
 
@@ -220,10 +226,11 @@ make install
 ### Project Commands
 
 ```bash
-make build    # Compile to build/howl
-make install  # Copy to ~/.claude/hud/howl
-make clean    # Remove build artifacts
-make test     # Run with sample JSON input
+make build        # Compile to build/howl
+make install      # Copy to ~/.claude/hud/howl
+make clean        # Remove build artifacts
+make test         # Smoke test with sample JSON input
+go test ./... -v  # Run unit tests (78% coverage)
 ```
 
 ### Adding New Metrics
@@ -266,8 +273,8 @@ No manual configuration needed if Claude Code is authenticated.
 
 ### Cache Locations
 
-- **Usage quota cache:** `/tmp/howl-{session_id}/usage.json` (60s TTL)
-- **Session-scoped:** Each Claude Code session has isolated cache
+- **Usage quota cache:** `$TMPDIR/howl-{session_id}/usage.json` (60s TTL)
+- **Session-scoped:** Each Claude Code session has isolated cache via `session_id`
 
 ---
 
@@ -307,9 +314,9 @@ Howl was created to solve specific pain points with existing Claude Code statusl
 
 ### Howl Solutions
 - ✅ **Session isolation** — Cache per `session_id`
-- ✅ **OAuth working** — Correct API headers discovered
-- ✅ **Rich metrics** — 13 distinct indicators
-- ✅ **Go performance** — 10ms cold start, 2MB binary
+- ✅ **OAuth headers** — Correct `anthropic-beta` header included
+- ✅ **Rich metrics** — 13 distinct indicators across 2-4 display lines
+- ✅ **Go performance** — ~10ms cold start, 5.2MB binary, zero dependencies
 
 ---
 

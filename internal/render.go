@@ -21,7 +21,7 @@ const (
 )
 
 // render produces lines for the statusline.
-// Always 3 lines. Danger mode (85%+) shows extra detail (token breakdown, $/h).
+// Normal mode: 2-4 lines (depending on active features). Danger mode (85%+): 2 dense lines.
 func Render(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, tools *ToolInfo) []string {
 	if m.ContextPercent >= DangerThreshold {
 		return renderDangerMode(d, m, git, usage, tools)
