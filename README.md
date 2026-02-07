@@ -41,22 +41,36 @@ A blazing-fast, feature-rich statusline HUD for [Claude Code](https://code.claud
 
 ## Installation
 
-### Prerequisites
-- Go 1.23+ (for building from source)
-- macOS with Keychain access (for OAuth quota tracking)
-- Claude Code CLI installed
+### Download Binary
 
-### Quick Install
+Download the latest binary from [GitHub Releases](https://github.com/ai-screams/Howl/releases/latest):
 
 ```bash
-# Clone the repository
-git clone https://github.com/ai-scream/howl.git
-cd howl
+mkdir -p ~/.claude/hud
 
-# Build and install
+# macOS (Apple Silicon)
+curl -fsSL https://github.com/ai-screams/Howl/releases/latest/download/howl_darwin_arm64 -o ~/.claude/hud/howl
+
+# macOS (Intel)
+curl -fsSL https://github.com/ai-screams/Howl/releases/latest/download/howl_darwin_amd64 -o ~/.claude/hud/howl
+
+# Linux (x86_64)
+curl -fsSL https://github.com/ai-screams/Howl/releases/latest/download/howl_linux_amd64 -o ~/.claude/hud/howl
+
+chmod +x ~/.claude/hud/howl
+```
+
+Verify with: `~/.claude/hud/howl --version`
+
+### Build from Source
+
+Prerequisites: Go 1.23+, Claude Code CLI
+
+```bash
+git clone https://github.com/ai-screams/Howl.git
+cd Howl
 make install
-
-# The binary will be installed to ~/.claude/hud/howl
+# Binary installed to ~/.claude/hud/howl
 ```
 
 ### Configure Claude Code
@@ -207,22 +221,6 @@ howl/
 
 ## Development
 
-### Build from Source
-
-```bash
-# Install dependencies (none! stdlib only)
-go mod download
-
-# Build
-make build
-
-# Run tests
-make test
-
-# Install to ~/.claude/hud/
-make install
-```
-
 ### Project Commands
 
 ```bash
@@ -230,7 +228,9 @@ make build        # Compile to build/howl
 make install      # Copy to ~/.claude/hud/howl
 make clean        # Remove build artifacts
 make test         # Smoke test with sample JSON input
-go test ./... -v  # Run unit tests (78% coverage)
+make unit-test    # Run unit tests
+make release-dry  # Test GoReleaser locally (snapshot)
+make release-check # Validate .goreleaser.yaml
 ```
 
 ### Adding New Metrics
@@ -325,7 +325,7 @@ Howl was created to solve specific pain points with existing Claude Code statusl
 - [ ] Configuration file support (`~/.claude/hud/config.json`)
 - [ ] Custom color schemes
 - [ ] Plugin system for custom metrics
-- [ ] Multi-platform support (Linux, Windows)
+- [ ] Windows support
 
 ---
 
@@ -343,7 +343,7 @@ MIT License — see LICENSE file for details.
 
 ## Credits
 
-**Project:** [ai-scream/howl](https://github.com/ai-scream/howl)
+**Project:** [ai-screams/Howl](https://github.com/ai-screams/Howl)
 **Author:** hanyul
 **Inspired by:** [claude-hud](https://github.com/jarrodwatts/claude-hud) by Jarrod Watts
 

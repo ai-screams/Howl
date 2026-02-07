@@ -1,0 +1,51 @@
+version: 2
+
+project_name: howl
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/howl
+    binary: howl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}}
+
+archives:
+  - format: binary
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: desc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^style:"
+      - "^build:"
+
+release:
+  github:
+    owner: ai-screams
+    name: Howl
+  draft: false
+  prerelease: auto
+  name_template: "Howl v{{.Version}}"

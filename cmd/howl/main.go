@@ -6,10 +6,26 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ai-scream/howl/internal"
+	"github.com/ai-screams/howl/internal"
+)
+
+var (
+	version = "dev"
+	commit  = "none"
 )
 
 func main() {
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "-v", "--version":
+			fmt.Printf("howl %s (%s)\n", version, commit)
+			os.Exit(0)
+		case "-h", "--help":
+			fmt.Fprintln(os.Stderr, "howl: Claude Code statusline HUD. Reads JSON from stdin.")
+			os.Exit(0)
+		}
+	}
+
 	var data internal.StdinData
 	if err := json.NewDecoder(os.Stdin).Decode(&data); err != nil {
 		fmt.Fprint(os.Stderr, "howl: stdin parse error")
