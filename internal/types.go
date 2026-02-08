@@ -9,7 +9,6 @@ type StdinData struct {
 	HookEventName  string        `json:"hook_event_name"`
 	CWD            string        `json:"cwd"`
 	Version        string        `json:"version"`
-	Exceeds200K    bool          `json:"exceeds_200k_tokens"`
 	Model          Model         `json:"model"`
 	Workspace      Workspace     `json:"workspace"`
 	Cost           Cost          `json:"cost"`

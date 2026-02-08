@@ -334,6 +334,36 @@ func TestFormatCount(t *testing.T) {
 	}
 }
 
+func TestFormatTokenCount(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		tokens int
+		want   string
+	}{
+		{"zero", 0, "0K"},
+		{"1K tokens", 1000, "1K"},
+		{"50K tokens", 50000, "50K"},
+		{"200K tokens", 200000, "200K"},
+		{"500K tokens", 500000, "500K"},
+		{"999K tokens", 999000, "999K"},
+		{"1M exact", 1000000, "1M"},
+		{"1.5M tokens", 1500000, "1.5M"},
+		{"2M exact", 2000000, "2M"},
+		{"128K tokens", 128000, "128K"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := formatTokenCount(tt.tokens)
+			if got != tt.want {
+				t.Errorf("formatTokenCount(%d) = %q, want %q", tt.tokens, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRenderAccount(t *testing.T) {
 	t.Parallel()
 
@@ -590,14 +620,14 @@ func TestRenderTokenBreakdown(t *testing.T) {
 		CacheReadInputTokens: 135000,
 	}
 	got := renderTokenBreakdown(cu)
-	if !strings.Contains(got, "In:30.0K") {
-		t.Errorf("renderTokenBreakdown() missing In:30.0K in %q", got)
+	if !strings.Contains(got, "In:30K") {
+		t.Errorf("renderTokenBreakdown() missing In:30K in %q", got)
 	}
-	if !strings.Contains(got, "Out:3.0K") {
-		t.Errorf("renderTokenBreakdown() missing Out:3.0K in %q", got)
+	if !strings.Contains(got, "Out:3K") {
+		t.Errorf("renderTokenBreakdown() missing Out:3K in %q", got)
 	}
-	if !strings.Contains(got, "Cache:135.0K") {
-		t.Errorf("renderTokenBreakdown() missing Cache:135.0K in %q", got)
+	if !strings.Contains(got, "Cache:135K") {
+		t.Errorf("renderTokenBreakdown() missing Cache:135K in %q", got)
 	}
 }
 
@@ -812,6 +842,24 @@ func TestRenderContextBar(t *testing.T) {
 			percent: 100,
 			cwSize:  200000,
 			wantIn:  []string{"100%"},
+		},
+		{
+			name:    "1M context shows M suffix",
+			percent: 50,
+			cwSize:  1000000,
+			wantIn:  []string{"50%", "500K/1M"},
+		},
+		{
+			name:    "1M context at 87%",
+			percent: 87,
+			cwSize:  1000000,
+			wantIn:  []string{"87%", "870K/1M"},
+		},
+		{
+			name:    "128K context",
+			percent: 75,
+			cwSize:  128000,
+			wantIn:  []string{"75%", "96K/128K"},
 		},
 	}
 

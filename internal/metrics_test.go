@@ -155,6 +155,21 @@ func TestCalcContextPercent(t *testing.T) {
 			},
 			want: 0,
 		},
+		{
+			name: "1M context window fallback",
+			data: &StdinData{
+				ContextWindow: ContextWindow{
+					UsedPercentage:    nil,
+					ContextWindowSize: 1000000,
+					CurrentUsage: &CurrentUsage{
+						InputTokens:              100000,
+						CacheCreationInputTokens: 50000,
+						CacheReadInputTokens:     350000,
+					},
+				},
+			},
+			want: 50,
+		},
 	}
 
 	for _, tt := range tests {

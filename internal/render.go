@@ -224,11 +224,8 @@ func renderContextBar(percent int, cw ContextWindow) string {
 	totalTokens := cw.ContextWindowSize
 	usedTokens := totalTokens * percent / 100
 
-	// Format with K suffix
-	usedK := float64(usedTokens) / 1000.0
-	totalK := float64(totalTokens) / 1000.0
-
-	return fmt.Sprintf("%s%s%s%s %d%% (%.1fK/%.0fK)", prefix, color, bar, Reset, percent, usedK, totalK)
+	return fmt.Sprintf("%s%s%s%s %d%% (%s/%s)", prefix, color, bar, Reset, percent,
+		formatTokenCount(usedTokens), formatTokenCount(totalTokens))
 }
 
 func contextColor(p int) string {
@@ -414,14 +411,10 @@ func renderAgentCompact(name string) string {
 }
 
 func renderTokenBreakdown(cu *CurrentUsage) string {
-	inK := float64(cu.InputTokens) / 1000.0
-	outK := float64(cu.OutputTokens) / 1000.0
-	cacheK := float64(cu.CacheReadInputTokens) / 1000.0
-
-	return fmt.Sprintf("%sIn:%.1fK%s %sOut:%.1fK%s %sCache:%.1fK%s",
-		grey, inK, Reset,
-		grey, outK, Reset,
-		green, cacheK, Reset)
+	return fmt.Sprintf("%sIn:%s%s %sOut:%s%s %sCache:%s%s",
+		grey, formatTokenCount(cu.InputTokens), Reset,
+		grey, formatTokenCount(cu.OutputTokens), Reset,
+		green, formatTokenCount(cu.CacheReadInputTokens), Reset)
 }
 
 func renderTools(tools map[string]int) string {
@@ -482,6 +475,17 @@ func formatCount(n int) string {
 		return fmt.Sprintf("%.1fK", float64(n)/1000.0)
 	}
 	return fmt.Sprintf("%d", n)
+}
+
+func formatTokenCount(tokens int) string {
+	if tokens >= 1_000_000 {
+		m := float64(tokens) / 1_000_000.0
+		if m == float64(int(m)) {
+			return fmt.Sprintf("%dM", int(m))
+		}
+		return fmt.Sprintf("%.1fM", m)
+	}
+	return fmt.Sprintf("%.0fK", float64(tokens)/1000.0)
 }
 
 // renderQuota formats 5h/7d remaining percentage for display.
