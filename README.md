@@ -65,11 +65,11 @@ A blazing-fast, feature-rich statusline HUD for [Claude Code](https://code.claud
 
 ---
 
-## Installation
+## 💾 Installation
 
 Choose your preferred installation method:
 
-### Method 1: Claude Code Plugin (Recommended)
+### 🔌 Method 1: Claude Code Plugin (Recommended)
 
 **Current Status:** Available for private repository access only. Will be available on the official Claude Marketplace after public release.
 
@@ -100,7 +100,7 @@ Or search for "howl" in `/plugin > Discover`.
 
 ---
 
-### Method 2: Direct Binary Download
+### 📦 Method 2: Direct Binary Download
 
 Download the latest binary from [GitHub Releases](https://github.com/ai-screams/Howl/releases/latest):
 
@@ -137,7 +137,7 @@ Verify: `~/.claude/hud/howl --version`
 
 ---
 
-### Method 3: Build from Source
+### 🛠️ Method 3: Build from Source
 
 Prerequisites: Go 1.23+, Claude Code CLI
 
@@ -152,7 +152,7 @@ The Makefile automatically configures your settings.json.
 
 ---
 
-### Post-Installation
+### ✅ Post-Installation
 
 Restart Claude Code to activate the statusline. The HUD will appear at the bottom of your terminal.
 
@@ -341,7 +341,7 @@ func renderNewMetric(val int) string {
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
 ### OAuth Credentials
 
@@ -359,7 +359,7 @@ No manual configuration needed if Claude Code is authenticated.
 
 ---
 
-## Uninstallation
+## 🗑️ Uninstallation
 
 ### If installed via Plugin
 
@@ -384,7 +384,7 @@ Then remove the `statusLine` field from `~/.claude/settings.json`.
 
 ---
 
-## Troubleshooting
+## 🔍 Troubleshooting
 
 ### Quota shows `?`
 
@@ -438,7 +438,7 @@ Howl was created to solve specific pain points with existing Claude Code statusl
 
 ---
 
-## Roadmap
+## 🗺️ Roadmap
 
 - [ ] Configuration file support (`~/.claude/hud/config.json`)
 - [ ] Custom color schemes
@@ -447,19 +447,19 @@ Howl was created to solve specific pain points with existing Claude Code statusl
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
 This is a personal tool for the AiScream project. Feedback and bug reports welcome!
 
 ---
 
-## License
+## 📄 License
 
 MIT License — see LICENSE file for details.
 
 ---
 
-## Credits
+## 💝 Credits
 
 **Project:** [ai-screams/Howl](https://github.com/ai-screams/Howl)
 **Author:** pignuante
