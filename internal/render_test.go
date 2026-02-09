@@ -983,3 +983,170 @@ func TestRenderContextBar(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildLine2WithPriority(t *testing.T) {
+	t.Parallel()
+
+	speed := 100
+	account := &AccountInfo{EmailAddress: "test@example.com"}
+	git := &GitInfo{Branch: "main", Dirty: false}
+	usage := &UsageData{RemainingPercent5h: 50.0}
+	d := &StdinData{
+		Cost: Cost{TotalLinesAdded: 10, TotalLinesRemoved: 5},
+	}
+	m := Metrics{ResponseSpeed: &speed}
+
+	tests := []struct {
+		name           string
+		priority       []string
+		features       FeatureToggles
+		wantOrder      []string // Expected metric order (substring checks)
+		wantLen        int
+		skipOrderCheck bool
+	}{
+		{
+			name:     "priority empty - default order",
+			priority: []string{},
+			features: FeatureToggles{
+				Account:       true,
+				Git:           true,
+				LineChanges:   true,
+				ResponseSpeed: true,
+				Quota:         true,
+			},
+			// Default: account → git → line_changes → response_speed → quota
+			wantOrder: []string{"test@example.com", "main", "+10", "100tok/s", "50%"},
+			wantLen:   5,
+		},
+		{
+			name:     "priority: quota first",
+			priority: []string{"quota", "git"},
+			features: FeatureToggles{
+				Account:       true,
+				Git:           true,
+				LineChanges:   true,
+				ResponseSpeed: true,
+				Quota:         true,
+			},
+			// Priority: quota → git, then default: account → line_changes → response_speed
+			wantOrder: []string{"50%", "main", "test@example.com", "+10", "100tok/s"},
+			wantLen:   5,
+		},
+		{
+			name:     "priority with disabled feature",
+			priority: []string{"response_speed", "account"},
+			features: FeatureToggles{
+				Account:       true,
+				Git:           true,
+				ResponseSpeed: false, // disabled
+			},
+			// Priority: account (response_speed skipped), default: git
+			wantOrder: []string{"test@example.com", "main"},
+			wantLen:   2,
+		},
+		{
+			name:     "priority full reverse",
+			priority: []string{"quota", "response_speed", "line_changes", "git", "account"},
+			features: FeatureToggles{
+				Account:       true,
+				Git:           true,
+				LineChanges:   true,
+				ResponseSpeed: true,
+				Quota:         true,
+			},
+			wantOrder: []string{"50%", "100tok/s", "+10", "main", "test@example.com"},
+			wantLen:   5,
+		},
+		{
+			name:     "all features disabled",
+			priority: []string{"quota", "git"},
+			features: FeatureToggles{}, // all false
+			wantLen:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{
+				Priority: tt.priority,
+				Features: tt.features,
+			}
+
+			got := buildLine2WithPriority(d, m, cfg, git, account, usage)
+
+			// Check length
+			if len(got) != tt.wantLen {
+				t.Errorf("buildLine2WithPriority() len = %d, want %d\nGot: %v", len(got), tt.wantLen, got)
+			}
+
+			// Check order (if not skipped)
+			if !tt.skipOrderCheck && len(tt.wantOrder) > 0 {
+				joined := joinParts(got)
+				lastIdx := -1
+				for i, substr := range tt.wantOrder {
+					idx := strings.Index(joined, substr)
+					if idx == -1 {
+						t.Errorf("buildLine2WithPriority() missing substring %q in output %q", substr, joined)
+					}
+					if idx < lastIdx {
+						t.Errorf("buildLine2WithPriority() order violation: %q at idx %d should come after prev at %d\nOutput: %q", substr, idx, lastIdx, joined)
+					}
+					lastIdx = idx
+					_ = i // unused
+				}
+			}
+		})
+	}
+}
+
+func TestBuildLine2WithPriority_NoDuplicates(t *testing.T) {
+	t.Parallel()
+
+	speed := 100
+	account := &AccountInfo{EmailAddress: "test@example.com"}
+	git := &GitInfo{Branch: "main"}
+	d := &StdinData{}
+	m := Metrics{ResponseSpeed: &speed}
+
+	cfg := Config{
+		Priority: []string{"git", "account"}, // Priority: git first
+		Features: FeatureToggles{
+			Account: true,
+			Git:     true,
+		},
+	}
+
+	got := buildLine2WithPriority(d, m, cfg, git, account, nil)
+
+	// Should have exactly 2 items (no duplicates)
+	if len(got) != 2 {
+		t.Errorf("buildLine2WithPriority() len = %d, want 2 (no duplicates)", len(got))
+	}
+
+	// Check git comes before account
+	joined := joinParts(got)
+	gitIdx := strings.Index(joined, "main")
+	accountIdx := strings.Index(joined, "test@example.com")
+
+	if gitIdx == -1 || accountIdx == -1 {
+		t.Errorf("buildLine2WithPriority() missing git or account in %q", joined)
+	}
+	if gitIdx > accountIdx {
+		t.Errorf("buildLine2WithPriority() git should come before account, got: %q", joined)
+	}
+}
+
+func TestBuildLine2WithPriority_EmptyPriority(t *testing.T) {
+	t.Parallel()
+
+	cfg := Config{
+		Priority: []string{}, // Empty priority
+		Features: FeatureToggles{},
+	}
+
+	got := buildLine2WithPriority(&StdinData{}, Metrics{}, cfg, nil, nil, nil)
+
+	if len(got) != 0 {
+		t.Errorf("buildLine2WithPriority() with no features enabled should return empty, got %d items", len(got))
+	}
+}

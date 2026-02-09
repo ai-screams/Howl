@@ -48,25 +48,8 @@ func buildLine1(d *StdinData, m Metrics) []string {
 func renderNormalMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, tools *ToolInfo, account *AccountInfo, cfg Config) []string {
 	line1 := buildLine1(d, m)
 
-	// Line 2: account | git | code changes | speed | quota (conditional based on config)
-	line2 := make([]string, 0, 7)
-	if cfg.Features.Account && account != nil && account.EmailAddress != "" {
-		line2 = append(line2, renderAccount(account))
-	}
-	if cfg.Features.Git && git != nil && git.Branch != "" {
-		line2 = append(line2, renderGitCompact(git))
-	}
-	if cfg.Features.LineChanges {
-		if lines := renderLineChanges(d.Cost); lines != "" {
-			line2 = append(line2, lines)
-		}
-	}
-	if cfg.Features.ResponseSpeed && m.ResponseSpeed != nil && *m.ResponseSpeed > 0 {
-		line2 = append(line2, renderResponseSpeed(*m.ResponseSpeed))
-	}
-	if cfg.Features.Quota && usage != nil {
-		line2 = append(line2, renderQuota(usage))
-	}
+	// Line 2: account | git | code changes | speed | quota (with priority support)
+	line2 := buildLine2WithPriority(d, m, cfg, git, account, usage)
 
 	// Line 3: tools and agents (conditional)
 	line3 := make([]string, 0, 3)
@@ -106,6 +89,86 @@ func renderNormalMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, t
 		lines = append(lines, joinParts(line4))
 	}
 	return lines
+}
+
+// buildLine2WithPriority constructs Line 2 with priority-based ordering.
+// Priority metrics are rendered first (in specified order), followed by remaining metrics in default order.
+// Uses added map to prevent duplicate rendering.
+func buildLine2WithPriority(d *StdinData, m Metrics, cfg Config, git *GitInfo, account *AccountInfo, usage *UsageData) []string {
+	line2 := make([]string, 0, 7)
+	added := make(map[string]bool, 5)
+
+	// Step 1: Render priority metrics first
+	for _, metric := range cfg.Priority {
+		if added[metric] {
+			continue // Skip if already added
+		}
+
+		switch metric {
+		case "account":
+			if cfg.Features.Account && account != nil && account.EmailAddress != "" {
+				line2 = append(line2, renderAccount(account))
+				added["account"] = true
+			}
+		case "git":
+			if cfg.Features.Git && git != nil && git.Branch != "" {
+				line2 = append(line2, renderGitCompact(git))
+				added["git"] = true
+			}
+		case "line_changes":
+			if cfg.Features.LineChanges {
+				if lines := renderLineChanges(d.Cost); lines != "" {
+					line2 = append(line2, lines)
+					added["line_changes"] = true
+				}
+			}
+		case "response_speed":
+			if cfg.Features.ResponseSpeed && m.ResponseSpeed != nil && *m.ResponseSpeed > 0 {
+				line2 = append(line2, renderResponseSpeed(*m.ResponseSpeed))
+				added["response_speed"] = true
+			}
+		case "quota":
+			if cfg.Features.Quota && usage != nil {
+				line2 = append(line2, renderQuota(usage))
+				added["quota"] = true
+			}
+		}
+	}
+
+	// Step 2: Render remaining metrics in default order
+	defaultOrder := []string{"account", "git", "line_changes", "response_speed", "quota"}
+	for _, metric := range defaultOrder {
+		if added[metric] {
+			continue // Skip if already rendered in priority
+		}
+
+		switch metric {
+		case "account":
+			if cfg.Features.Account && account != nil && account.EmailAddress != "" {
+				line2 = append(line2, renderAccount(account))
+			}
+		case "git":
+			if cfg.Features.Git && git != nil && git.Branch != "" {
+				line2 = append(line2, renderGitCompact(git))
+			}
+		case "line_changes":
+			if cfg.Features.LineChanges {
+				if lines := renderLineChanges(d.Cost); lines != "" {
+					line2 = append(line2, lines)
+				}
+			}
+		case "response_speed":
+			if cfg.Features.ResponseSpeed && m.ResponseSpeed != nil && *m.ResponseSpeed > 0 {
+				line2 = append(line2, renderResponseSpeed(*m.ResponseSpeed))
+			}
+		case "quota":
+			if cfg.Features.Quota && usage != nil {
+				line2 = append(line2, renderQuota(usage))
+			}
+		}
+	}
+
+	return line2
 }
 
 func renderDangerMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, _ *ToolInfo) []string {

@@ -9,10 +9,20 @@ import (
 
 const maxConfigSize = 4096 // 4KB limit
 
+// validLine2Metrics defines the allowed metrics for Priority (Line 2 only).
+var validLine2Metrics = map[string]bool{
+	"account":        true,
+	"git":            true,
+	"line_changes":   true,
+	"response_speed": true,
+	"quota":          true,
+}
+
 // Config represents user's statusline configuration.
 type Config struct {
 	Preset   string         `json:"preset"`
-	Features FeatureToggles `json:"features"` // v1.0에서 무시, v1.1에서 활성화
+	Features FeatureToggles `json:"features"` // v1.1: override preset base
+	Priority []string       `json:"priority"` // v1.1: Line 2 metric order (max 5)
 }
 
 // FeatureToggles controls which metrics are displayed.
@@ -64,6 +74,88 @@ var presets = map[string]FeatureToggles{
 }
 
 // DefaultConfig returns full preset (current behavior).
+// mergeFeatures merges override into base. If override field is true, it overrides base.
+// If override field is false, base value is preserved (no reflection, explicit for all 12 fields).
+func mergeFeatures(base, override FeatureToggles) FeatureToggles {
+	result := base
+	if override.Account {
+		result.Account = true
+	}
+	if override.Git {
+		result.Git = true
+	}
+	if override.LineChanges {
+		result.LineChanges = true
+	}
+	if override.ResponseSpeed {
+		result.ResponseSpeed = true
+	}
+	if override.Quota {
+		result.Quota = true
+	}
+	if override.Tools {
+		result.Tools = true
+	}
+	if override.Agents {
+		result.Agents = true
+	}
+	if override.CacheEfficiency {
+		result.CacheEfficiency = true
+	}
+	if override.APIWaitRatio {
+		result.APIWaitRatio = true
+	}
+	if override.CostVelocity {
+		result.CostVelocity = true
+	}
+	if override.VimMode {
+		result.VimMode = true
+	}
+	if override.AgentName {
+		result.AgentName = true
+	}
+	return result
+}
+
+// validatePriority normalizes, deduplicates, and validates priority list.
+// Returns only Line 2 metrics (max 5), lowercased and deduplicated.
+func validatePriority(input []string) []string {
+	if len(input) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	result := make([]string, 0, 5)
+
+	for _, metric := range input {
+		// Normalize: lowercase + trim
+		normalized := strings.ToLower(strings.TrimSpace(metric))
+		if normalized == "" {
+			continue
+		}
+
+		// Skip duplicates
+		if seen[normalized] {
+			continue
+		}
+
+		// Validate: only Line 2 metrics
+		if !validLine2Metrics[normalized] {
+			continue
+		}
+
+		seen[normalized] = true
+		result = append(result, normalized)
+
+		// Max 5 items
+		if len(result) >= 5 {
+			break
+		}
+	}
+
+	return result
+}
+
 func DefaultConfig() Config {
 	return PresetConfig("full")
 }
@@ -113,14 +205,19 @@ func LoadConfig() Config {
 		cfg.Preset = "full"
 	}
 
-	// Apply preset (v1.0: preset overrides features field)
-	if p, ok := presets[cfg.Preset]; ok {
-		cfg.Features = p
-	} else {
+	// Get preset base
+	base, ok := presets[cfg.Preset]
+	if !ok {
 		// Unknown preset -> fallback to full silently
 		cfg.Preset = "full"
-		cfg.Features = presets["full"]
+		base = presets["full"]
 	}
+
+	// v1.1: merge features override into preset base
+	cfg.Features = mergeFeatures(base, cfg.Features)
+
+	// v1.1: validate and normalize priority
+	cfg.Priority = validatePriority(cfg.Priority)
 
 	return cfg
 }
