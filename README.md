@@ -14,6 +14,12 @@ A blazing-fast, feature-rich statusline HUD for [Claude Code](https://code.claud
 
 ---
 
+![Howl in action](assets/normal.png)
+
+_Real-time statusline HUD showing 1M context session with 13 intelligent metrics_
+
+---
+
 ## Table of Contents
 
 - [Features](#features)
@@ -164,30 +170,35 @@ Howl runs automatically as a subprocess every ~300ms. No manual interaction need
 
 ### Example Output
 
-**1M Context Session (17%) — 4 lines:**
+**Normal Mode (21% context, 1M):**
+
+![Normal Mode](assets/normal.png)
+
+<details>
+<summary>Text output (for accessibility)</summary>
 
 ```
-[Sonnet 4.5 (1M context)] | ███░░░░░░░░░░░░░░░░░ 17% (170K/1M) | $16.1 | 28h0m
-hanyul.ryu@gmail.com | main | +89/-23 | 11tok/s | (3h)5h: 80%/2% :7d(18h)
-Edit(3) Bash(3)
-Cache:99% | Wait:5% | Cost:$0.01/m | I
+[Sonnet 4.5] | ████░░░░░░░░░░░░░░░░ 21% (210K/1M) | $24.5 | 29h15m
+hanyul.ryu@gmail.com | main | +328/-67 | 15tok/s | (2h)5h: 78%/88% :7d(3d21h)
+Bash(2)
+Cache:99% | Wait:6% | Cost:$0.01/m | I
 ```
 
-**Normal Session (21% context, 1M) — 4 lines:**
+</details>
+
+**Danger Mode (100% context, 200K):**
+
+![Danger Mode](assets/danger.png)
+
+<details>
+<summary>Text output (for accessibility)</summary>
 
 ```
-[Sonnet 4.5] | ████░░░░░░░░░░░░░░░░ 21% (210K/1000K) | $32.7 | 2h46m
-main* | +2.7K/-120 | 50tok/s | (2h)5h: 55%/42% :7d(3d6h)
-Read(9) Bash(8) TaskCreate(4) mcp__context7(3)
-Cache:96% | Wait:41% | Cost:$0.19/m | I
+🔴 [Opus 4.6] | ████████████████████ 100% (200K/200K) | $24.5 | 29h17m
+hud/main | +328/-67 | In:0K Out:0K Cache:212K | 15tok/s | C99% | A6% | $0.8/h | I | (2h)5h: 72%/87% :7d(3d21h)
 ```
 
-**Danger Mode (87% context, 200K) — 2 lines:**
-
-```
-🔴 [Opus 4.6] | ████████████████░░ 87% (174K/200K) | $15.7 | 1h23m
-hud/main* | +850/-45 | In:30K Out:3K Cache:135K | 11tok/s | C79% | A24% | $11.3/h | I | @code-wri | (1h)5h: 25%/18% :7d(2d)
-```
+</details>
 
 ### Metrics Explained
 
