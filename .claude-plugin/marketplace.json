@@ -11,7 +11,7 @@
       "name": "howl",
       "source": "./",
       "description": "Your AI screams — Howl listens. 13 metrics, adaptive layouts, zero dependencies.",
-      "version": "1.0.0"
+      "version": "1.1.0"
     }
   ]
 }
