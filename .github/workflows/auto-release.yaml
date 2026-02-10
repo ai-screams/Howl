@@ -10,7 +10,7 @@ on:
 # See: https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/making-authenticated-api-requests-with-a-github-app-in-a-github-actions-workflow
 
 concurrency:
-  group: release
+  group: auto-release
   cancel-in-progress: false
 
 permissions:
