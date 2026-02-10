@@ -67,6 +67,7 @@ func TestRenderModelBadge(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := renderModelBadge(tt.model)
 			if !strings.Contains(got, tt.wantColor) {
 				t.Errorf("renderModelBadge(%v) missing color %q in %q", tt.model, tt.wantColor, got)
@@ -383,20 +384,21 @@ func TestRenderAccount(t *testing.T) {
 			wantContain: "test@test.com",
 		},
 		{
-			name:        "empty email",
+			name:        "empty email returns grey+reset only",
 			acc:         &AccountInfo{EmailAddress: ""},
-			wantContain: "",
+			wantContain: grey + Reset, // no email between color codes
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got := renderAccount(tt.acc)
-			if !strings.Contains(got, tt.wantContain) {
+			if tt.wantContain != "" && !strings.Contains(got, tt.wantContain) {
 				t.Errorf("renderAccount() = %q, want to contain %q", got, tt.wantContain)
 			}
-			// Verify grey color is used (if email not empty)
-			if tt.wantContain != "" && !strings.Contains(got, grey) {
+			// Verify grey color is used for all cases
+			if !strings.Contains(got, grey) {
 				t.Errorf("renderAccount() should use grey color, got %q", got)
 			}
 		})
@@ -1148,5 +1150,475 @@ func TestBuildLine2WithPriority_EmptyPriority(t *testing.T) {
 
 	if len(got) != 0 {
 		t.Errorf("buildLine2WithPriority() with no features enabled should return empty, got %d items", len(got))
+	}
+}
+
+// ====== New Tests for Coverage Gaps ======
+
+// renderNormalMode coverage improvements
+
+func TestRenderNormalMode_WithTools(t *testing.T) {
+	t.Parallel()
+
+	d := &StdinData{
+		Model:         Model{DisplayName: "Claude Sonnet 4.5"},
+		ContextWindow: ContextWindow{ContextWindowSize: 200000},
+		Cost:          Cost{TotalDurationMS: 120000, TotalCostUSD: 1.5},
+	}
+	m := Metrics{ContextPercent: 50} // Under 85% = normal mode
+	tools := &ToolInfo{
+		Tools: map[string]int{"Read": 10, "Write": 5, "Bash": 3},
+	}
+	cfg := Config{
+		Features: FeatureToggles{Tools: true},
+	}
+
+	lines := renderNormalMode(d, m, nil, nil, tools, nil, cfg)
+
+	// Should have at least 3 lines (line1 + line2 empty or not + line3 with tools)
+	if len(lines) < 2 {
+		t.Fatalf("renderNormalMode with tools should have 2+ lines, got %d", len(lines))
+	}
+
+	// Join all lines to check for tool names
+	output := strings.Join(lines, " ")
+	if !strings.Contains(output, "Read") {
+		t.Errorf("renderNormalMode with tools missing 'Read' in output: %q", output)
+	}
+	if !strings.Contains(output, "(10)") {
+		t.Errorf("renderNormalMode with tools missing count '(10)' in output: %q", output)
+	}
+}
+
+func TestRenderNormalMode_WithAgents(t *testing.T) {
+	t.Parallel()
+
+	d := &StdinData{
+		Model:         Model{DisplayName: "Claude Sonnet 4.5"},
+		ContextWindow: ContextWindow{ContextWindowSize: 200000},
+		Cost:          Cost{TotalDurationMS: 120000, TotalCostUSD: 1.5},
+	}
+	m := Metrics{ContextPercent: 50}
+	tools := &ToolInfo{
+		Agents: []string{"researcher", "coder"},
+	}
+	cfg := Config{
+		Features: FeatureToggles{Agents: true},
+	}
+
+	lines := renderNormalMode(d, m, nil, nil, tools, nil, cfg)
+
+	// Should have at least 2 lines (line1 + line3 with agents)
+	if len(lines) < 2 {
+		t.Fatalf("renderNormalMode with agents should have 2+ lines, got %d", len(lines))
+	}
+
+	output := strings.Join(lines, " ")
+	if !strings.Contains(output, "researcher") {
+		t.Errorf("renderNormalMode with agents missing 'researcher' in output: %q", output)
+	}
+	if !strings.Contains(output, "coder") {
+		t.Errorf("renderNormalMode with agents missing 'coder' in output: %q", output)
+	}
+}
+
+func TestRenderNormalMode_Line4Metrics(t *testing.T) {
+	t.Parallel()
+
+	cache := 75
+	apiRatio := 40
+	costPerMin := 0.15
+
+	d := &StdinData{
+		Model:         Model{DisplayName: "Claude Sonnet 4.5"},
+		ContextWindow: ContextWindow{ContextWindowSize: 200000},
+		Cost:          Cost{TotalDurationMS: 120000, TotalCostUSD: 1.5},
+	}
+	m := Metrics{
+		ContextPercent:  50,
+		CacheEfficiency: &cache,
+		APIWaitRatio:    &apiRatio,
+		CostPerMinute:   &costPerMin,
+	}
+	cfg := Config{
+		Features: FeatureToggles{
+			CacheEfficiency: true,
+			APIWaitRatio:    true,
+			CostVelocity:    true,
+		},
+	}
+
+	lines := renderNormalMode(d, m, nil, nil, nil, nil, cfg)
+
+	// Should have at least 2 lines (line1 + line4)
+	if len(lines) < 2 {
+		t.Fatalf("renderNormalMode with line4 metrics should have 2+ lines, got %d", len(lines))
+	}
+
+	output := strings.Join(lines, " ")
+	// Check for cache label
+	if !strings.Contains(output, "Cache:") {
+		t.Errorf("renderNormalMode line4 missing 'Cache:' in output: %q", output)
+	}
+	// Check for wait label
+	if !strings.Contains(output, "Wait:") {
+		t.Errorf("renderNormalMode line4 missing 'Wait:' in output: %q", output)
+	}
+	// Check for cost label
+	if !strings.Contains(output, "Cost:") {
+		t.Errorf("renderNormalMode line4 missing 'Cost:' in output: %q", output)
+	}
+}
+
+func TestRenderNormalMode_VimAndAgent(t *testing.T) {
+	t.Parallel()
+
+	d := &StdinData{
+		Model:         Model{DisplayName: "Claude Sonnet 4.5"},
+		ContextWindow: ContextWindow{ContextWindowSize: 200000},
+		Cost:          Cost{TotalDurationMS: 120000, TotalCostUSD: 1.5},
+		Vim:           &Vim{Mode: "normal"},
+		Agent:         &Agent{Name: "my-agent"},
+	}
+	m := Metrics{ContextPercent: 50}
+	cfg := Config{
+		Features: FeatureToggles{
+			VimMode:   true,
+			AgentName: true,
+		},
+	}
+
+	lines := renderNormalMode(d, m, nil, nil, nil, nil, cfg)
+
+	// Should have at least 2 lines (line1 + line4)
+	if len(lines) < 2 {
+		t.Fatalf("renderNormalMode with vim/agent should have 2+ lines, got %d", len(lines))
+	}
+
+	output := strings.Join(lines, " ")
+	// Vim normal mode shows "N"
+	if !strings.Contains(output, "N") {
+		t.Errorf("renderNormalMode with vim missing 'N' in output: %q", output)
+	}
+	// Agent name shows @my-agent
+	if !strings.Contains(output, "@my-agent") {
+		t.Errorf("renderNormalMode with agent missing '@my-agent' in output: %q", output)
+	}
+}
+
+func TestRenderNormalMode_AllLinesPresent(t *testing.T) {
+	t.Parallel()
+
+	cache := 80
+	apiRatio := 30
+	costPerMin := 0.05
+	speed := 100
+
+	d := &StdinData{
+		Model:         Model{DisplayName: "Claude Sonnet 4.5"},
+		ContextWindow: ContextWindow{ContextWindowSize: 200000},
+		Cost:          Cost{TotalDurationMS: 120000, TotalCostUSD: 1.5, TotalLinesAdded: 50, TotalLinesRemoved: 10},
+		Vim:           &Vim{Mode: "insert"},
+		Agent:         &Agent{Name: "researcher"},
+	}
+	m := Metrics{
+		ContextPercent:  50,
+		CacheEfficiency: &cache,
+		APIWaitRatio:    &apiRatio,
+		CostPerMinute:   &costPerMin,
+		ResponseSpeed:   &speed,
+	}
+	git := &GitInfo{Branch: "main", Dirty: true}
+	tools := &ToolInfo{
+		Tools:  map[string]int{"Read": 15, "Write": 8},
+		Agents: []string{"coder", "tester"},
+	}
+	account := &AccountInfo{EmailAddress: "test@example.com"}
+	usage := &UsageData{RemainingPercent5h: 60.0}
+
+	cfg := DefaultConfig() // All features enabled
+
+	lines := renderNormalMode(d, m, git, usage, tools, account, cfg)
+
+	// With all features enabled, should have 4 lines
+	if len(lines) != 4 {
+		t.Errorf("renderNormalMode with all features should have 4 lines, got %d\nLines: %v", len(lines), lines)
+	}
+
+	output := strings.Join(lines, " ")
+	// Verify key elements from each line
+	if !strings.Contains(output, "Sonnet") {
+		t.Errorf("renderNormalMode missing model name in output: %q", output)
+	}
+	if !strings.Contains(output, "test@example.com") {
+		t.Errorf("renderNormalMode missing account in output: %q", output)
+	}
+	if !strings.Contains(output, "Read") {
+		t.Errorf("renderNormalMode missing tools in output: %q", output)
+	}
+	if !strings.Contains(output, "Cache:") {
+		t.Errorf("renderNormalMode missing cache metric in output: %q", output)
+	}
+}
+
+// renderDangerMode coverage improvements
+
+func TestRenderDangerMode_Full(t *testing.T) {
+	t.Parallel()
+
+	cache := 70
+	apiRatio := 45
+	costPerMin := 0.25
+	speed := 80
+
+	d := &StdinData{
+		Model: Model{DisplayName: "Claude Opus 4"},
+		ContextWindow: ContextWindow{
+			ContextWindowSize: 200000,
+			CurrentUsage: &CurrentUsage{
+				InputTokens:          50000,
+				OutputTokens:         10000,
+				CacheReadInputTokens: 120000,
+			},
+		},
+		Cost:      Cost{TotalDurationMS: 300000, TotalCostUSD: 15.0, TotalLinesAdded: 200, TotalLinesRemoved: 50},
+		Workspace: Workspace{ProjectDir: "/home/user/project"},
+		Vim:       &Vim{Mode: "normal"},
+		Agent:     &Agent{Name: "coder"},
+	}
+	m := Metrics{
+		ContextPercent:  90,
+		CacheEfficiency: &cache,
+		APIWaitRatio:    &apiRatio,
+		CostPerMinute:   &costPerMin,
+		ResponseSpeed:   &speed,
+	}
+	git := &GitInfo{Branch: "feature", Dirty: true}
+	usage := &UsageData{RemainingPercent5h: 40.0, RemainingPercent7d: 70.0}
+
+	lines := renderDangerMode(d, m, git, usage, nil)
+
+	// Danger mode always returns exactly 2 lines
+	if len(lines) != 2 {
+		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
+	}
+
+	output := strings.Join(lines, " ")
+
+	// Verify all parts are present in line2
+	if !strings.Contains(output, "project/") {
+		t.Errorf("renderDangerMode missing workspace in output: %q", output)
+	}
+	if !strings.Contains(output, "feature*") {
+		t.Errorf("renderDangerMode missing git branch in output: %q", output)
+	}
+	if !strings.Contains(output, "+200") {
+		t.Errorf("renderDangerMode missing line changes in output: %q", output)
+	}
+	if !strings.Contains(output, "In:50K") {
+		t.Errorf("renderDangerMode missing token breakdown in output: %q", output)
+	}
+	if !strings.Contains(output, "80tok/s") {
+		t.Errorf("renderDangerMode missing speed in output: %q", output)
+	}
+	if !strings.Contains(output, "C70%") {
+		t.Errorf("renderDangerMode missing cache efficiency in output: %q", output)
+	}
+	if !strings.Contains(output, "A45%") {
+		t.Errorf("renderDangerMode missing API ratio in output: %q", output)
+	}
+	// Cost per hour (0.25 * 60 = 15.0/h)
+	if !strings.Contains(output, "15.0/h") {
+		t.Errorf("renderDangerMode missing cost/hour in output: %q", output)
+	}
+	if !strings.Contains(output, "N") {
+		t.Errorf("renderDangerMode missing vim mode in output: %q", output)
+	}
+	if !strings.Contains(output, "@coder") {
+		t.Errorf("renderDangerMode missing agent name in output: %q", output)
+	}
+	if !strings.Contains(output, "40%") {
+		t.Errorf("renderDangerMode missing quota in output: %q", output)
+	}
+}
+
+func TestRenderDangerMode_WithWorkspaceAndGit(t *testing.T) {
+	t.Parallel()
+
+	d := &StdinData{
+		Model:         Model{DisplayName: "Sonnet"},
+		ContextWindow: ContextWindow{ContextWindowSize: 200000},
+		Cost:          Cost{TotalDurationMS: 60000},
+		Workspace:     Workspace{ProjectDir: "/home/user/myproject"},
+	}
+	m := Metrics{ContextPercent: 85}
+	git := &GitInfo{Branch: "main"}
+
+	lines := renderDangerMode(d, m, git, nil, nil)
+
+	if len(lines) != 2 {
+		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
+	}
+
+	// Check line2 contains workspace + git combined
+	if !strings.Contains(lines[1], "myproject/") {
+		t.Errorf("renderDangerMode missing workspace in line2: %q", lines[1])
+	}
+	if !strings.Contains(lines[1], "main") {
+		t.Errorf("renderDangerMode missing git branch in line2: %q", lines[1])
+	}
+}
+
+func TestRenderDangerMode_WithWorkspaceNoGit(t *testing.T) {
+	t.Parallel()
+
+	d := &StdinData{
+		Model:         Model{DisplayName: "Sonnet"},
+		ContextWindow: ContextWindow{ContextWindowSize: 200000},
+		Cost:          Cost{TotalDurationMS: 60000},
+		Workspace:     Workspace{CurrentDir: "/home/user/test"},
+	}
+	m := Metrics{ContextPercent: 90}
+
+	lines := renderDangerMode(d, m, nil, nil, nil)
+
+	if len(lines) != 2 {
+		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
+	}
+
+	// Check line2 contains workspace only (no git)
+	if !strings.Contains(lines[1], "test/") {
+		t.Errorf("renderDangerMode missing workspace in line2: %q", lines[1])
+	}
+}
+
+func TestRenderDangerMode_WithQuota(t *testing.T) {
+	t.Parallel()
+
+	d := &StdinData{
+		Model:         Model{DisplayName: "Sonnet"},
+		ContextWindow: ContextWindow{ContextWindowSize: 200000},
+		Cost:          Cost{TotalDurationMS: 60000},
+	}
+	m := Metrics{ContextPercent: 92}
+	usage := &UsageData{RemainingPercent5h: 15.0, RemainingPercent7d: 80.0}
+
+	lines := renderDangerMode(d, m, nil, usage, nil)
+
+	if len(lines) != 2 {
+		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
+	}
+
+	// Check line2 contains quota
+	if !strings.Contains(lines[1], "15%") {
+		t.Errorf("renderDangerMode missing 5h quota in line2: %q", lines[1])
+	}
+	if !strings.Contains(lines[1], "80%") {
+		t.Errorf("renderDangerMode missing 7d quota in line2: %q", lines[1])
+	}
+}
+
+func TestRenderDangerMode_WithVimAndAgent(t *testing.T) {
+	t.Parallel()
+
+	d := &StdinData{
+		Model:         Model{DisplayName: "Sonnet"},
+		ContextWindow: ContextWindow{ContextWindowSize: 200000},
+		Cost:          Cost{TotalDurationMS: 60000},
+		Vim:           &Vim{Mode: "visual"},
+		Agent:         &Agent{Name: "tester"},
+	}
+	m := Metrics{ContextPercent: 88}
+
+	lines := renderDangerMode(d, m, nil, nil, nil)
+
+	if len(lines) != 2 {
+		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
+	}
+
+	// Check line2 contains vim mode and agent
+	if !strings.Contains(lines[1], "V") {
+		t.Errorf("renderDangerMode missing vim visual mode 'V' in line2: %q", lines[1])
+	}
+	if !strings.Contains(lines[1], "@tester") {
+		t.Errorf("renderDangerMode missing agent '@tester' in line2: %q", lines[1])
+	}
+}
+
+func TestRenderDangerMode_CostPerHour(t *testing.T) {
+	t.Parallel()
+
+	costPerMin := 0.50 // 0.50/min * 60 = 30.0/h
+
+	d := &StdinData{
+		Model:         Model{DisplayName: "Opus"},
+		ContextWindow: ContextWindow{ContextWindowSize: 200000},
+		Cost:          Cost{TotalDurationMS: 180000, TotalCostUSD: 10.0},
+	}
+	m := Metrics{
+		ContextPercent: 87,
+		CostPerMinute:  &costPerMin,
+	}
+
+	lines := renderDangerMode(d, m, nil, nil, nil)
+
+	if len(lines) != 2 {
+		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
+	}
+
+	// Check for cost per hour format: $30.0/h
+	if !strings.Contains(lines[1], "30.0/h") {
+		t.Errorf("renderDangerMode missing cost/hour '30.0/h' in line2: %q", lines[1])
+	}
+}
+
+func TestRenderDangerMode_MinimalData(t *testing.T) {
+	t.Parallel()
+
+	// Only required fields: model, context window, duration
+	d := &StdinData{
+		Model:         Model{DisplayName: "Sonnet"},
+		ContextWindow: ContextWindow{ContextWindowSize: 200000},
+		Cost:          Cost{TotalDurationMS: 60000},
+	}
+	m := Metrics{ContextPercent: 85}
+
+	lines := renderDangerMode(d, m, nil, nil, nil)
+
+	// Should not panic and should return 2 lines
+	if len(lines) != 2 {
+		t.Fatalf("renderDangerMode with minimal data should return 2 lines, got %d", len(lines))
+	}
+
+	// Line1 should contain model and context bar
+	if !strings.Contains(lines[0], "Sonnet") {
+		t.Errorf("renderDangerMode line1 missing model name: %q", lines[0])
+	}
+	if !strings.Contains(lines[0], "85%") {
+		t.Errorf("renderDangerMode line1 missing context percentage: %q", lines[0])
+	}
+}
+
+// PresetConfig edge case
+
+func TestPresetConfig_UnknownPreset(t *testing.T) {
+	t.Parallel()
+
+	cfg := PresetConfig("garbage")
+
+	// Unknown preset should fallback to "full"
+	if cfg.Preset != "full" {
+		t.Errorf("PresetConfig with unknown preset should return 'full', got %q", cfg.Preset)
+	}
+
+	// Should have all features enabled (full preset)
+	if !cfg.Features.Account {
+		t.Error("PresetConfig fallback to full should have Account enabled")
+	}
+	if !cfg.Features.Git {
+		t.Error("PresetConfig fallback to full should have Git enabled")
+	}
+	if !cfg.Features.Tools {
+		t.Error("PresetConfig fallback to full should have Tools enabled")
 	}
 }

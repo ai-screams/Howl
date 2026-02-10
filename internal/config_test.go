@@ -25,10 +25,8 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestLoadConfig_NoFile(t *testing.T) {
 	// Use non-existent path
-	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", tmpDir)
 
 	cfg := LoadConfig()
 	if cfg.Preset != "full" {
@@ -40,10 +38,8 @@ func TestLoadConfig_NoFile(t *testing.T) {
 }
 
 func TestLoadConfig_MalformedJSON(t *testing.T) {
-	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", tmpDir)
 
 	configDir := filepath.Join(tmpDir, ".claude", "hud")
 	os.MkdirAll(configDir, 0755)
@@ -59,10 +55,8 @@ func TestLoadConfig_MalformedJSON(t *testing.T) {
 }
 
 func TestLoadConfig_EmptyPreset(t *testing.T) {
-	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", tmpDir)
 
 	configDir := filepath.Join(tmpDir, ".claude", "hud")
 	os.MkdirAll(configDir, 0755)
@@ -78,10 +72,8 @@ func TestLoadConfig_EmptyPreset(t *testing.T) {
 }
 
 func TestLoadConfig_UnknownPreset(t *testing.T) {
-	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", tmpDir)
 
 	configDir := filepath.Join(tmpDir, ".claude", "hud")
 	os.MkdirAll(configDir, 0755)
@@ -116,10 +108,8 @@ func TestLoadConfig_ValidPresets(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.preset, func(t *testing.T) {
-			origHome := os.Getenv("HOME")
 			tmpDir := t.TempDir()
-			os.Setenv("HOME", tmpDir)
-			defer os.Setenv("HOME", origHome)
+			t.Setenv("HOME", tmpDir)
 
 			configDir := filepath.Join(tmpDir, ".claude", "hud")
 			os.MkdirAll(configDir, 0755)
@@ -164,10 +154,8 @@ func TestLoadConfig_Normalization(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			origHome := os.Getenv("HOME")
 			tmpDir := t.TempDir()
-			os.Setenv("HOME", tmpDir)
-			defer os.Setenv("HOME", origHome)
+			t.Setenv("HOME", tmpDir)
 
 			configDir := filepath.Join(tmpDir, ".claude", "hud")
 			os.MkdirAll(configDir, 0755)
@@ -184,10 +172,8 @@ func TestLoadConfig_Normalization(t *testing.T) {
 }
 
 func TestLoadConfig_FileTooLarge(t *testing.T) {
-	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", tmpDir)
 
 	configDir := filepath.Join(tmpDir, ".claude", "hud")
 	os.MkdirAll(configDir, 0755)
@@ -205,10 +191,8 @@ func TestLoadConfig_FileTooLarge(t *testing.T) {
 
 func TestLoadConfig_FeaturesIgnored(t *testing.T) {
 	// v1.1: features field now overrides preset base
-	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", tmpDir)
 
 	configDir := filepath.Join(tmpDir, ".claude", "hud")
 	os.MkdirAll(configDir, 0755)
@@ -331,10 +315,8 @@ func TestValidatePriority_MaxFive(t *testing.T) {
 }
 
 func TestLoadConfig_WithFeaturesOverride(t *testing.T) {
-	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", tmpDir)
 
 	configDir := filepath.Join(tmpDir, ".claude", "hud")
 	os.MkdirAll(configDir, 0755)
@@ -360,10 +342,8 @@ func TestLoadConfig_WithFeaturesOverride(t *testing.T) {
 }
 
 func TestLoadConfig_WithPriority(t *testing.T) {
-	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", tmpDir)
 
 	configDir := filepath.Join(tmpDir, ".claude", "hud")
 	os.MkdirAll(configDir, 0755)
@@ -382,10 +362,8 @@ func TestLoadConfig_WithPriority(t *testing.T) {
 }
 
 func TestLoadConfig_PriorityWithInvalid(t *testing.T) {
-	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	t.Setenv("HOME", tmpDir)
 
 	configDir := filepath.Join(tmpDir, ".claude", "hud")
 	os.MkdirAll(configDir, 0755)

@@ -31,10 +31,15 @@ type usageAPIResponse struct {
 	} `json:"seven_day"`
 }
 
+// usageAPIURL is the OAuth usage API endpoint. Package-level var for test substitution.
+var usageAPIURL = "https://api.anthropic.com/api/oauth/usage"
+
+// getOAuthTokenFunc returns the OAuth token. Package-level var for test substitution.
+var getOAuthTokenFunc = getOAuthToken
+
 const (
-	usageAPIURL = "https://api.anthropic.com/api/oauth/usage"
-	cacheTTL    = UsageCacheTTL
-	apiTimeout  = UsageAPITimeout
+	cacheTTL   = UsageCacheTTL
+	apiTimeout = UsageAPITimeout
 )
 
 // GetUsage fetches OAuth usage data with session-scoped caching.
@@ -52,7 +57,7 @@ func GetUsage(sessionID string) *UsageData {
 	}
 
 	// Fetch fresh data
-	token := getOAuthToken()
+	token := getOAuthTokenFunc()
 	if token == "" {
 		return nil
 	}
