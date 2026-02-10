@@ -7,9 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-02-10
+
+### Added
+
+- Auto-sync plugin.json version in release pipeline (jq, idempotency guard)
+- Comprehensive badge collection to README (7 → 24 badges)
+- Comprehensive test enhancement (80.2% → 95.6% coverage, 113 tests + 284 subtests)
+
+### Fixed
+
+- Enforce CGO_ENABLED=0 in Makefile build target
+- Split push in auto-release to prevent [skip ci] from blocking Release workflow
+
 ### Changed
 
-- Local CHANGELOG.md now manually synchronized with GitHub Releases
+- Auto-release pipeline: plugin.json version synced before tagging via jq
+- Push strategy: separate branch push ([skip ci]) and tag push for correct workflow triggering
 
 ## [1.3.0] - 2026-02-10
 
@@ -80,7 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract magic numbers to constants
 - Remove deprecated and unused render functions
 
-[Unreleased]: https://github.com/ai-screams/Howl/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/ai-screams/Howl/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/ai-screams/Howl/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/ai-screams/Howl/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/ai-screams/Howl/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/ai-screams/Howl/compare/v1.0.0...v1.1.0

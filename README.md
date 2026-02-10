@@ -488,6 +488,7 @@ Howl was created to solve specific pain points with existing Claude Code statusl
 ## 🗺️ Roadmap
 
 - [x] Configuration file support (`~/.claude/hud/config.json`) — _Available in v1.3.0+_
+- [x] Auto-sync plugin.json version in release pipeline — _Available in v1.4.0+_
 - [ ] Custom color schemes
 - [ ] Plugin system for custom metrics
 - [ ] Windows support
