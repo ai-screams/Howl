@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -270,15 +271,7 @@ func TestCalcCacheEfficiency(t *testing.T) {
 			t.Parallel()
 			got := calcCacheEfficiency(tt.cu)
 			if !intPtrEq(got, tt.want) {
-				gotVal := "nil"
-				wantVal := "nil"
-				if got != nil {
-					gotVal = intToString(*got)
-				}
-				if tt.want != nil {
-					wantVal = intToString(*tt.want)
-				}
-				t.Errorf("calcCacheEfficiency() = %s, want %s", gotVal, wantVal)
+				t.Errorf("calcCacheEfficiency() = %s, want %s", ptrIntToString(got), ptrIntToString(tt.want))
 			}
 		})
 	}
@@ -355,15 +348,7 @@ func TestCalcAPIWaitRatio(t *testing.T) {
 			t.Parallel()
 			got := calcAPIWaitRatio(tt.cost)
 			if !intPtrEq(got, tt.want) {
-				gotVal := "nil"
-				wantVal := "nil"
-				if got != nil {
-					gotVal = intToString(*got)
-				}
-				if tt.want != nil {
-					wantVal = intToString(*tt.want)
-				}
-				t.Errorf("calcAPIWaitRatio() = %s, want %s", gotVal, wantVal)
+				t.Errorf("calcAPIWaitRatio() = %s, want %s", ptrIntToString(got), ptrIntToString(tt.want))
 			}
 		})
 	}
@@ -440,15 +425,7 @@ func TestCalcCostPerMinute(t *testing.T) {
 			t.Parallel()
 			got := calcCostPerMinute(tt.cost)
 			if !floatPtrEq(got, tt.want) {
-				gotVal := "nil"
-				wantVal := "nil"
-				if got != nil {
-					gotVal = floatToString(*got)
-				}
-				if tt.want != nil {
-					wantVal = floatToString(*tt.want)
-				}
-				t.Errorf("calcCostPerMinute() = %s, want %s", gotVal, wantVal)
+				t.Errorf("calcCostPerMinute() = %s, want %s", ptrFloatToString(got), ptrFloatToString(tt.want))
 			}
 		})
 	}
@@ -560,15 +537,7 @@ func TestCalcResponseSpeed(t *testing.T) {
 			t.Parallel()
 			got := calcResponseSpeed(tt.cost, tt.cw)
 			if !intPtrEq(got, tt.want) {
-				gotVal := "nil"
-				wantVal := "nil"
-				if got != nil {
-					gotVal = intToString(*got)
-				}
-				if tt.want != nil {
-					wantVal = intToString(*tt.want)
-				}
-				t.Errorf("calcResponseSpeed() = %s, want %s", gotVal, wantVal)
+				t.Errorf("calcResponseSpeed() = %s, want %s", ptrIntToString(got), ptrIntToString(tt.want))
 			}
 		})
 	}
@@ -736,49 +705,12 @@ func TestComputeMetrics(t *testing.T) {
 	}
 }
 
-// Simple int to string converter for error messages
-func intToString(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	var buf [20]byte
-	i := len(buf) - 1
-	for n > 0 {
-		buf[i] = byte('0' + n%10)
-		n /= 10
-		i--
-	}
-	if neg {
-		buf[i] = '-'
-		i--
-	}
-	return string(buf[i+1:])
-}
-
-// Simple float64 to string converter for error messages
-func floatToString(f float64) string {
-	if f == 0.0 {
-		return "0.0"
-	}
-	// Simple approximation for test output
-	i := int(f)
-	frac := int((f - float64(i)) * 100)
-	if frac < 0 {
-		frac = -frac
-	}
-	return intToString(i) + "." + intToString(frac)
-}
-
 // Helper for printing pointer values in errors
 func ptrIntToString(p *int) string {
 	if p == nil {
 		return "nil"
 	}
-	return intToString(*p)
+	return fmt.Sprintf("%d", *p)
 }
 
 // Helper for printing pointer values in errors
@@ -786,5 +718,5 @@ func ptrFloatToString(p *float64) string {
 	if p == nil {
 		return "nil"
 	}
-	return floatToString(*p)
+	return fmt.Sprintf("%.2f", *p)
 }

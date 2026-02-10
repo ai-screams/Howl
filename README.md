@@ -10,7 +10,7 @@ A blazing-fast, feature-rich statusline HUD for [Claude Code](https://code.claud
 [![Release](https://img.shields.io/github/v/release/ai-screams/Howl)](https://github.com/ai-screams/Howl/releases)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/ai-screams/Howl/ci.yaml?label=CI)](https://github.com/ai-screams/Howl/actions)
-[![Coverage](https://img.shields.io/badge/Coverage-75.7%25-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/Coverage-95.6%25-brightgreen)]()
 
 ---
 
@@ -247,16 +247,27 @@ Claude Code Statusline Display
 howl/
 ├── cmd/
 │   └── howl/
-│       └── main.go          # Entry point, orchestration
+│       ├── main.go          # Entry point, orchestration
+│       └── main_test.go     # Main package tests
 ├── internal/
 │   ├── constants.go         # Threshold constants
 │   ├── types.go             # StdinData structs, model classification
+│   ├── types_test.go        # Types tests
 │   ├── metrics.go           # Derived calculations
+│   ├── metrics_test.go      # Metrics tests
 │   ├── render.go            # ANSI output generation
+│   ├── render_test.go       # Render tests
+│   ├── config.go            # Configuration system
+│   ├── config_test.go       # Config tests
 │   ├── git.go               # Git subprocess calls
+│   ├── git_test.go          # Git tests
 │   ├── usage.go             # OAuth quota API
+│   ├── usage_test.go        # Usage tests
+│   ├── account.go           # Account tier detection
+│   ├── account_test.go      # Account tests
 │   ├── transcript.go        # JSONL parsing
-│   ├── *_test.go            # Unit tests (75.7% coverage)
+│   ├── transcript_test.go   # Transcript tests
+│   ├── integration_test.go  # Integration tests
 │   └── testdata/            # JSONL test fixtures
 ├── docs/                    # Design & research documents
 ├── Makefile                 # Build automation
@@ -453,7 +464,7 @@ Howl was created to solve specific pain points with existing Claude Code statusl
 
 ## 🗺️ Roadmap
 
-- [x] Configuration file support (`~/.claude/hud/config.json`) — _Available in v1.1.0+_
+- [x] Configuration file support (`~/.claude/hud/config.json`) — _Available in v1.3.0+_
 - [ ] Custom color schemes
 - [ ] Plugin system for custom metrics
 - [ ] Windows support
