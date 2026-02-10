@@ -7,25 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-02-10
+
 ### Added
 
-- Gitleaks secret scanning to all CI workflows
-- Weekly security vulnerability scanning (govulncheck)
-- Modular reusable workflows for CI/CD pipeline
+- GitHub App authentication for auto-release workflow (replaces PAT)
+- Complete release setup documentation (docs/RELEASE_SETUP.md)
+
+### Changed
+
+- Auto-release now uses GitHub App tokens (1-hour auto-expiry)
+- Improved security: repository-scoped permissions, better audit trail
+
+## [1.2.0] - 2026-02-10
+
+### Added
+
+- Modular reusable workflows for CI/CD pipeline (9 workflows)
+- Security scanning: govulncheck + Gitleaks CLI + weekly audit
 - Auto-release with semantic versioning (svu)
-- Configuration system: individual metric toggles and priority ordering (Phase 1c)
-- Interactive preset selection via `/howl:configure` skill
-- Preset system for customizable statusline display (Phase 1b)
+- Pre-commit hooks: go mod tidy + conventional commits validation
+- Comprehensive godoc comments for all exported symbols
 
 ### Fixed
 
 - CI/CD workflow failures: govulncheck, gitleaks, release-build
-- Upgrade Go to 1.24.13 for TLS/x509 security patches
+- Release build dependency: add test to prevent broken releases
+- Upgrade Go to 1.24.13 for TLS/x509 security patches (GO-2025-3420, GO-2025-3373)
 
 ### Changed
 
-- Optimize CI workflows for 40% faster builds
-- Plugin version pin removed for auto-latest updates
+- Coverage threshold: adjusted to 75% (actual 80.2%)
+- Disable Go module cache (zero external dependencies)
+- Tests disabled in pre-commit hook (CI-only per expert panel)
 
 ## [1.1.0] - 2026-02-08
 
@@ -62,6 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract magic numbers to constants
 - Remove deprecated and unused render functions
 
-[Unreleased]: https://github.com/ai-screams/Howl/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/ai-screams/Howl/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/ai-screams/Howl/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/ai-screams/Howl/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/ai-screams/Howl/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ai-screams/Howl/releases/tag/v1.0.0
