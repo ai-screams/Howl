@@ -1,0 +1,23 @@
+name: Security - Weekly Scan
+
+on:
+  schedule:
+    # Run weekly on Sunday at 00:00 UTC (09:00 KST)
+    - cron: "0 0 * * 0"
+  workflow_dispatch: # Allow manual trigger
+
+# Never cancel scheduled security scans
+concurrency:
+  group: security-weekly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  security-events: write # Required for SARIF upload in secret scanning
+
+jobs:
+  vulnerability:
+    uses: ./.github/workflows/security-scan.yaml
+
+  secrets:
+    uses: ./.github/workflows/security-secrets.yaml

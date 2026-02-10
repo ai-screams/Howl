@@ -27,13 +27,14 @@ test: build
 	@echo '{"session_id":"test-123","model":{"id":"claude-opus-4-6","display_name":"Opus 4.6"},"cost":{"total_cost_usd":0.23,"total_duration_ms":4980000,"total_api_duration_ms":897000,"total_lines_added":156,"total_lines_removed":23},"context_window":{"total_input_tokens":15234,"total_output_tokens":4521,"context_window_size":200000,"used_percentage":42,"current_usage":{"input_tokens":8500,"output_tokens":1200,"cache_creation_input_tokens":5000,"cache_read_input_tokens":12000}},"workspace":{"current_dir":"/Users/hanyul/Works/AiScream/hud","project_dir":"/Users/hanyul/Works/AiScream/hud"},"version":"2.1.33"}' | $(BUILD_DIR)/$(BINARY)
 
 unit-test:
-	go test ./... -v
+	go test ./... -v -cover -coverprofile=coverage.out
+	@go tool cover -func=coverage.out | grep total
 
 lint:
 	$(GOLANGCI_LINT) run --timeout=3m ./...
 
 fmt:
-	$(GOLANGCI_LINT) fmt ./...
+	go fmt ./...
 
 fmt-docs:
 	$(PRETTIER) -w -u "**/*.md" "**/*.yaml" "**/*.yml"

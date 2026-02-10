@@ -1,0 +1,38 @@
+name: Quality - Test & Coverage
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: false # Zero external dependencies (stdlib only)
+
+      - name: Run tests with coverage
+        run: go test -v -cover -coverprofile=coverage.out ./...
+
+      - name: Check coverage threshold
+        run: |
+          coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          if (( $(awk "BEGIN {print ($coverage < 75.0)}") )); then
+            echo "❌ Coverage $coverage% is below 75% threshold"
+            exit 1
+          fi
+          echo "✅ Coverage: $coverage%"
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.out
+          retention-days: 7
