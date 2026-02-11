@@ -1,6 +1,6 @@
 {
   "name": "howl",
-  "version": "1.6.3",
+  "version": "1.6.0",
   "description": "Your AI screams — Howl listens. Blazing-fast Go statusline HUD with 13 metrics and adaptive layouts.",
   "author": {
     "name": "AiScream"

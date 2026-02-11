@@ -20,6 +20,20 @@ permissions:
   security-events: write # Required for SARIF upload in secret scanning
 
 jobs:
+  resolve-ref:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.ref.outputs.ref }}
+    steps:
+      - name: Resolve checkout ref
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ref=refs/tags/${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "ref=${{ github.ref }}" >> $GITHUB_OUTPUT
+          fi
+
   lint:
     uses: ./.github/workflows/quality-lint.yaml
 
@@ -37,5 +51,7 @@ jobs:
 
   build:
     uses: ./.github/workflows/release-build.yaml
-    needs: [test, vulnerability, secrets]
+    needs: [resolve-ref, test, vulnerability, secrets]
+    with:
+      ref: ${{ needs.resolve-ref.outputs.ref }}
     secrets: inherit

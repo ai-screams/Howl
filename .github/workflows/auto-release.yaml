@@ -1,7 +1,8 @@
 name: Auto Release
 
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches: [main]
 
 # This workflow uses a GitHub App token instead of GITHUB_TOKEN
@@ -18,6 +19,7 @@ permissions:
 
 jobs:
   auto-tag:
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -83,3 +85,11 @@ jobs:
           git tag ${{ steps.version.outputs.next }}
           git push origin main
           git push origin ${{ steps.version.outputs.next }}
+
+      - name: Trigger Release workflow
+        if: steps.check.outputs.needs_release == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh workflow run release.yaml -f tag=${{ steps.version.outputs.next }}
+          echo "Release workflow dispatched for ${{ steps.version.outputs.next }}"
