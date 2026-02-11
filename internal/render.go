@@ -82,7 +82,7 @@ func renderNormalMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, t
 		}
 	}
 	if cfg.Features.CacheEfficiency && m.CacheEfficiency != nil && *m.CacheEfficiency > 0 {
-		line3 = append(line3, renderCacheEfficiencyLabeled(*m.CacheEfficiency, t))
+		line3 = append(line3, renderCacheEfficiencyLabeled(*m.CacheEfficiency, t, d.ContextWindow.CurrentUsage))
 	}
 	if cfg.Features.APIWaitRatio && m.APIWaitRatio != nil && *m.APIWaitRatio > 0 {
 		line3 = append(line3, renderAPIRatioLabeled(*m.APIWaitRatio, t))
@@ -95,6 +95,9 @@ func renderNormalMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, t
 	}
 	if cfg.Features.AgentName && d.Agent != nil && d.Agent.Name != "" {
 		line3 = append(line3, renderAgentCompact(d.Agent.Name))
+	}
+	if v := renderVersion(d.Version); v != "" {
+		line3 = append(line3, v)
 	}
 
 	// Line 4: tools and agents (conditional)
@@ -363,8 +366,14 @@ func renderCacheEfficiencyCompact(pct int, t Thresholds) string {
 	return fmt.Sprintf("%sC%d%%%s", cacheColor(pct, t), pct, Reset)
 }
 
-func renderCacheEfficiencyLabeled(pct int, t Thresholds) string {
-	return fmt.Sprintf("%sCache:%s%d%%%s", grey, cacheColor(pct, t), pct, Reset)
+func renderCacheEfficiencyLabeled(pct int, t Thresholds, cu *CurrentUsage) string {
+	base := fmt.Sprintf("%sCache:%s%d%%%s", grey, cacheColor(pct, t), pct, Reset)
+	if cu == nil {
+		return base
+	}
+	w := formatTokenCount(cu.CacheCreationInputTokens)
+	r := formatTokenCount(cu.CacheReadInputTokens)
+	return fmt.Sprintf("%s%s(W:%s/R:%s)%s", base, grey, w, r, Reset)
 }
 
 func apiRatioColor(pct int, t Thresholds) string {
@@ -428,6 +437,13 @@ func renderVimCompact(mode string) string {
 	default:
 		return ""
 	}
+}
+
+func renderVersion(version string) string {
+	if version == "" {
+		return ""
+	}
+	return grey + "v" + version + Reset
 }
 
 func renderAgentCompact(name string) string {

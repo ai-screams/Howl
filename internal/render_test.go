@@ -488,21 +488,32 @@ func TestRenderCacheEfficiencyLabeled(t *testing.T) {
 	tests := []struct {
 		name      string
 		pct       int
+		cu        *CurrentUsage
 		wantColor string
+		wantW     bool
 	}{
-		{"excellent green", 80, green},
-		{"good yellow", 50, yellow},
-		{"poor red", 49, red},
+		{"excellent green", 80, nil, green, false},
+		{"good yellow", 50, nil, yellow, false},
+		{"poor red", 49, nil, red, false},
+		{"with token breakdown", 90, &CurrentUsage{
+			CacheCreationInputTokens: 3000,
+			CacheReadInputTokens:     120000,
+		}, green, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := renderCacheEfficiencyLabeled(tt.pct, DefaultThresholds())
+			got := renderCacheEfficiencyLabeled(tt.pct, DefaultThresholds(), tt.cu)
 			if !strings.Contains(got, tt.wantColor) {
 				t.Errorf("renderCacheEfficiencyLabeled(%d) missing color in %q", tt.pct, got)
 			}
 			if !strings.Contains(got, "Cache:") {
 				t.Errorf("renderCacheEfficiencyLabeled(%d) missing 'Cache:' label in %q", tt.pct, got)
+			}
+			if tt.wantW {
+				if !strings.Contains(got, "W:") || !strings.Contains(got, "R:") {
+					t.Errorf("renderCacheEfficiencyLabeled(%d) missing W:/R: breakdown in %q", tt.pct, got)
+				}
 			}
 		})
 	}
