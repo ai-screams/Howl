@@ -780,7 +780,6 @@ func TestIntegration_PriorityOrdering(t *testing.T) {
 			ResponseSpeed: true,
 			Quota:         true,
 		},
-		Priority: []string{"quota", "git", "account"},
 	}
 
 	git := &GitInfo{Branch: "feature", Dirty: false}
@@ -801,35 +800,31 @@ func TestIntegration_PriorityOrdering(t *testing.T) {
 	m := ComputeMetrics(&d)
 	lines := Render(&d, m, git, usage, nil, account, cfg)
 
-	if len(lines) < 2 {
-		t.Fatalf("expected at least 2 lines, got %d", len(lines))
+	if len(lines) < 3 {
+		t.Fatalf("expected at least 3 lines, got %d", len(lines))
 	}
 
+	// New layout: line1 has account+git+speed+cost+duration, line2 has bars, line3 has metrics
+	line1 := lines[0]
 	line2 := lines[1]
 
-	// Find positions of quota, git, and account in line 2
-	quotaPos := strings.Index(line2, "80%")   // quota indicator
-	gitPos := strings.Index(line2, "feature") // git branch
-	accountPos := strings.Index(line2, "test@example.com")
-
-	if quotaPos == -1 {
-		t.Error("line 2 missing quota")
+	// Line 1 should contain account and git
+	if !strings.Contains(line1, "test@example.com") {
+		t.Error("line 1 missing account")
 	}
-	if gitPos == -1 {
-		t.Error("line 2 missing git")
-	}
-	if accountPos == -1 {
-		t.Error("line 2 missing account")
+	if !strings.Contains(line1, "feature") {
+		t.Error("line 1 missing git branch")
 	}
 
-	// Verify ordering: quota before git, git before account
-	if quotaPos != -1 && gitPos != -1 && quotaPos >= gitPos {
-		t.Errorf("quota should appear before git: quota pos=%d, git pos=%d\nLine: %s",
-			quotaPos, gitPos, line2)
+	// Line 2 should contain context bar and quota bars
+	if !strings.Contains(line2, "27%") { // context percent (27.5 truncates to 27)
+		t.Error("line 2 missing context bar")
 	}
-	if gitPos != -1 && accountPos != -1 && gitPos >= accountPos {
-		t.Errorf("git should appear before account: git pos=%d, account pos=%d\nLine: %s",
-			gitPos, accountPos, line2)
+	if !strings.Contains(line2, "80%") {
+		t.Error("line 2 missing 5h quota bar")
+	}
+	if !strings.Contains(line2, "90%") {
+		t.Error("line 2 missing 7d quota bar")
 	}
 }
 

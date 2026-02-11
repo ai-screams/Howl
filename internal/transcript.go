@@ -34,6 +34,29 @@ type ToolInfo struct {
 
 // ParseTranscript reads the last N lines of transcript to extract recent tools and agents.
 // Returns nil on any error (transcript parsing is optional).
+// shortenToolName extracts a readable short name from MCP tool names.
+// e.g. "mcp__plugin_serena_serena__find_symbol" → "serena__find_symbol"
+// Non-MCP tools (Edit, Read, Bash) are returned as-is.
+func shortenToolName(name string) string {
+	// Split by "__" double-underscore separator
+	parts := strings.Split(name, "__")
+	if len(parts) < 3 {
+		return name
+	}
+
+	toolName := parts[len(parts)-1]
+	serverPart := parts[len(parts)-2]
+
+	// Strip "plugin_" prefix if present
+	serverPart = strings.TrimPrefix(serverPart, "plugin_")
+
+	// Take last "_"-separated segment as the plugin name
+	segments := strings.Split(serverPart, "_")
+	pluginName := segments[len(segments)-1]
+
+	return pluginName + "__" + toolName
+}
+
 func ParseTranscript(path string) *ToolInfo {
 	if path == "" {
 		return nil
@@ -74,7 +97,7 @@ func ParseTranscript(path string) *ToolInfo {
 					}
 				} else if block.Name != "TodoWrite" {
 					// Count regular tools (skip TodoWrite)
-					toolCounts[block.Name]++
+					toolCounts[shortenToolName(block.Name)]++
 				}
 			} else if block.Type == "tool_result" && block.ToolUseID != "" {
 				// Agent completed

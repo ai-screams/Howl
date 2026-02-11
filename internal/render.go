@@ -40,10 +40,19 @@ func Render(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, tools *Tool
 	return renderNormalMode(d, m, git, usage, tools, account, cfg)
 }
 
-func buildLine1(d *StdinData, m Metrics, t Thresholds) []string {
-	line1 := make([]string, 0, 5)
-	line1 = append(line1, renderModelBadge(d.Model))
-	line1 = append(line1, renderContextBar(m.ContextPercent, d.ContextWindow, t))
+func buildLine1(d *StdinData, m Metrics, cfg Config, git *GitInfo, account *AccountInfo) []string {
+	t := cfg.Thresholds
+	line1 := make([]string, 0, 7)
+	line1 = append(line1, renderModelBadge(d.Model, d.ContextWindow.ContextWindowSize))
+	if cfg.Features.Account && account != nil && account.EmailAddress != "" {
+		line1 = append(line1, renderAccount(account))
+	}
+	if cfg.Features.Git && git != nil && git.Branch != "" {
+		line1 = append(line1, renderGitCompact(git))
+	}
+	if cfg.Features.ResponseSpeed && m.ResponseSpeed != nil && *m.ResponseSpeed > 0 {
+		line1 = append(line1, renderResponseSpeed(*m.ResponseSpeed, t))
+	}
 	if costStr := renderCost(d.Cost.TotalCostUSD, t); costStr != "" {
 		line1 = append(line1, costStr)
 	}
@@ -53,36 +62,48 @@ func buildLine1(d *StdinData, m Metrics, t Thresholds) []string {
 
 func renderNormalMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, tools *ToolInfo, account *AccountInfo, cfg Config) []string {
 	t := cfg.Thresholds
-	line1 := buildLine1(d, m, t)
 
-	// Line 2: account | git | code changes | speed | quota (with priority support)
-	line2 := buildLine2WithPriority(d, m, cfg, git, account, usage)
+	// Line 1: model(+context size) | account | git | speed | cost | duration
+	line1 := buildLine1(d, m, cfg, git, account)
 
-	// Line 3: tools and agents (conditional)
-	line3 := make([]string, 0, 3)
-	if cfg.Features.Tools && tools != nil && len(tools.Tools) > 0 {
-		line3 = append(line3, renderTools(tools.Tools))
-	}
-	if cfg.Features.Agents && tools != nil && len(tools.Agents) > 0 {
-		line3 = append(line3, renderAgents(tools.Agents))
+	// Line 2: context bar | 5h quota bar | 7d quota bar
+	line2 := make([]string, 0, 3)
+	line2 = append(line2, renderContextBar(m.ContextPercent, d.ContextWindow, t))
+	if cfg.Features.Quota && usage != nil {
+		line2 = append(line2, renderQuotaBar(usage.RemainingPercent5h, usage.ResetsAt5h, "5h", t))
+		line2 = append(line2, renderQuotaBar(usage.RemainingPercent7d, usage.ResetsAt7d, "7d", t))
 	}
 
-	// Line 4: metrics + vim/agent (conditional)
-	line4 := make([]string, 0, 6)
+	// Line 3: line changes | cache | wait | cost velocity (+ vim/agent conditionally)
+	line3 := make([]string, 0, 7)
+	if cfg.Features.LineChanges {
+		if lines := renderLineChanges(d.Cost); lines != "" {
+			line3 = append(line3, lines)
+		}
+	}
 	if cfg.Features.CacheEfficiency && m.CacheEfficiency != nil && *m.CacheEfficiency > 0 {
-		line4 = append(line4, renderCacheEfficiencyLabeled(*m.CacheEfficiency, t))
+		line3 = append(line3, renderCacheEfficiencyLabeled(*m.CacheEfficiency, t))
 	}
 	if cfg.Features.APIWaitRatio && m.APIWaitRatio != nil && *m.APIWaitRatio > 0 {
-		line4 = append(line4, renderAPIRatioLabeled(*m.APIWaitRatio, t))
+		line3 = append(line3, renderAPIRatioLabeled(*m.APIWaitRatio, t))
 	}
 	if cfg.Features.CostVelocity && m.CostPerMinute != nil {
-		line4 = append(line4, renderCostVelocityLabeled(*m.CostPerMinute, t))
+		line3 = append(line3, renderCostVelocityLabeled(*m.CostPerMinute, t))
 	}
 	if cfg.Features.VimMode && d.Vim != nil && d.Vim.Mode != "" {
-		line4 = append(line4, renderVimCompact(d.Vim.Mode))
+		line3 = append(line3, renderVimCompact(d.Vim.Mode))
 	}
 	if cfg.Features.AgentName && d.Agent != nil && d.Agent.Name != "" {
-		line4 = append(line4, renderAgentCompact(d.Agent.Name))
+		line3 = append(line3, renderAgentCompact(d.Agent.Name))
+	}
+
+	// Line 4: tools and agents (conditional)
+	line4 := make([]string, 0, 3)
+	if cfg.Features.Tools && tools != nil && len(tools.Tools) > 0 {
+		line4 = append(line4, renderTools(tools.Tools))
+	}
+	if cfg.Features.Agents && tools != nil && len(tools.Agents) > 0 {
+		line4 = append(line4, renderAgents(tools.Agents))
 	}
 
 	lines := []string{joinParts(line1)}
@@ -98,89 +119,15 @@ func renderNormalMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, t
 	return lines
 }
 
-// buildLine2WithPriority constructs Line 2 with priority-based ordering.
-// Priority metrics are rendered first (in specified order), followed by remaining metrics in default order.
-// Uses added map to prevent duplicate rendering.
-func buildLine2WithPriority(d *StdinData, m Metrics, cfg Config, git *GitInfo, account *AccountInfo, usage *UsageData) []string {
-	t := cfg.Thresholds
-	line2 := make([]string, 0, 7)
-	added := make(map[string]bool, 5)
-
-	// Step 1: Render priority metrics first
-	for _, metric := range cfg.Priority {
-		if added[metric] {
-			continue // Skip if already added
-		}
-
-		switch metric {
-		case "account":
-			if cfg.Features.Account && account != nil && account.EmailAddress != "" {
-				line2 = append(line2, renderAccount(account))
-				added["account"] = true
-			}
-		case "git":
-			if cfg.Features.Git && git != nil && git.Branch != "" {
-				line2 = append(line2, renderGitCompact(git))
-				added["git"] = true
-			}
-		case "line_changes":
-			if cfg.Features.LineChanges {
-				if lines := renderLineChanges(d.Cost); lines != "" {
-					line2 = append(line2, lines)
-					added["line_changes"] = true
-				}
-			}
-		case "response_speed":
-			if cfg.Features.ResponseSpeed && m.ResponseSpeed != nil && *m.ResponseSpeed > 0 {
-				line2 = append(line2, renderResponseSpeed(*m.ResponseSpeed, t))
-				added["response_speed"] = true
-			}
-		case "quota":
-			if cfg.Features.Quota && usage != nil {
-				line2 = append(line2, renderQuota(usage, t))
-				added["quota"] = true
-			}
-		}
-	}
-
-	// Step 2: Render remaining metrics in default order
-	defaultOrder := []string{"account", "git", "line_changes", "response_speed", "quota"}
-	for _, metric := range defaultOrder {
-		if added[metric] {
-			continue // Skip if already rendered in priority
-		}
-
-		switch metric {
-		case "account":
-			if cfg.Features.Account && account != nil && account.EmailAddress != "" {
-				line2 = append(line2, renderAccount(account))
-			}
-		case "git":
-			if cfg.Features.Git && git != nil && git.Branch != "" {
-				line2 = append(line2, renderGitCompact(git))
-			}
-		case "line_changes":
-			if cfg.Features.LineChanges {
-				if lines := renderLineChanges(d.Cost); lines != "" {
-					line2 = append(line2, lines)
-				}
-			}
-		case "response_speed":
-			if cfg.Features.ResponseSpeed && m.ResponseSpeed != nil && *m.ResponseSpeed > 0 {
-				line2 = append(line2, renderResponseSpeed(*m.ResponseSpeed, t))
-			}
-		case "quota":
-			if cfg.Features.Quota && usage != nil {
-				line2 = append(line2, renderQuota(usage, t))
-			}
-		}
-	}
-
-	return line2
-}
-
 func renderDangerMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, _ *ToolInfo, t Thresholds) []string {
-	line1 := buildLine1(d, m, t)
+	// Danger mode line 1: model | context bar | cost | duration (original layout)
+	line1 := make([]string, 0, 5)
+	line1 = append(line1, renderModelBadge(d.Model, d.ContextWindow.ContextWindowSize))
+	line1 = append(line1, renderContextBar(m.ContextPercent, d.ContextWindow, t))
+	if costStr := renderCost(d.Cost.TotalCostUSD, t); costStr != "" {
+		line1 = append(line1, costStr)
+	}
+	line1 = append(line1, renderDuration(d.Cost.TotalDurationMS))
 
 	// Line 2: workspace/git | changes | token breakdown | speed | metrics
 	line2 := make([]string, 0, 10)
@@ -236,7 +183,7 @@ func renderDangerMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, _
 	return []string{joinParts(line1), joinParts(line2)}
 }
 
-func renderModelBadge(m Model) string {
+func renderModelBadge(m Model, contextSize int) string {
 	name := m.DisplayName
 	if name == "" {
 		name = m.ID
@@ -252,6 +199,11 @@ func renderModelBadge(m Model) string {
 		suffix = " BR" // Bedrock
 	} else if strings.Contains(lowerID, "publishers/anthropic") {
 		suffix = " VX" // Vertex
+	}
+
+	// Append context window size
+	if contextSize > 0 {
+		suffix += " (" + formatTokenCount(contextSize) + " context)"
 	}
 
 	var color string
@@ -270,7 +222,7 @@ func renderModelBadge(m Model) string {
 }
 
 func renderContextBar(percent int, cw ContextWindow, t Thresholds) string {
-	const width = 20
+	const width = 10
 	filled := width * percent / 100
 	if filled > width {
 		filled = width
@@ -393,7 +345,7 @@ func renderLineChanges(c Cost) string {
 	}
 	add := formatCount(c.TotalLinesAdded)
 	del := formatCount(c.TotalLinesRemoved)
-	return fmt.Sprintf("%s+%s%s/%s-%s%s", green, add, Reset, red, del, Reset)
+	return fmt.Sprintf("%sΔ%s%s+%s%s/%s-%s%s", grey, Reset, green, add, Reset, red, del, Reset)
 }
 
 func cacheColor(pct int, t Thresholds) string {
@@ -466,13 +418,13 @@ func renderVimCompact(mode string) string {
 	switch m {
 	case "normal":
 		color = blue
-		return color + "N" + Reset
+		return color + "Normal" + Reset
 	case "insert":
 		color = green
-		return color + "I" + Reset
+		return color + "Insert" + Reset
 	case "visual":
 		color = magenta
-		return color + "V" + Reset
+		return color + "Visual" + Reset
 	default:
 		return ""
 	}
@@ -580,7 +532,48 @@ func renderQuota(u *UsageData, t Thresholds) string {
 		grey, until7d, Reset)
 }
 
+func renderQuotaBar(remainPct float64, resetTime time.Time, label string, t Thresholds) string {
+	const width = 10
+	filled := int(remainPct) * width / 100
+	if filled > width {
+		filled = width
+	}
+	if filled < 0 {
+		filled = 0
+	}
+	empty := width - filled
+
+	var b strings.Builder
+	b.Grow(width)
+	for i := 0; i < filled; i++ {
+		b.WriteRune('█')
+	}
+	for i := 0; i < empty; i++ {
+		b.WriteRune('░')
+	}
+	bar := b.String()
+
+	color := quotaColor(remainPct, t)
+	now := time.Now()
+	var until string
+	if label == "5h" {
+		until = formatTimeUntilWithMinutes(now, resetTime)
+	} else {
+		until = formatTimeUntil(now, resetTime)
+	}
+
+	return fmt.Sprintf("%s%s%s %.0f%% (%s/%s)", color, bar, Reset, remainPct, until, label)
+}
+
 func formatTimeUntil(now, target time.Time) string {
+	return formatTimeUntilWith(now, target, false)
+}
+
+func formatTimeUntilWithMinutes(now, target time.Time) string {
+	return formatTimeUntilWith(now, target, true)
+}
+
+func formatTimeUntilWith(now, target time.Time, includeMinutes bool) string {
 	if target.IsZero() {
 		return "?"
 	}
@@ -590,7 +583,12 @@ func formatTimeUntil(now, target time.Time) string {
 	}
 
 	hours := int(diff.Hours())
+	minutes := int(diff.Minutes()) % 60
+
 	if hours < 24 {
+		if includeMinutes && minutes > 0 {
+			return fmt.Sprintf("%dh%dm", hours, minutes)
+		}
 		return fmt.Sprintf("%dh", hours)
 	}
 	days := hours / 24
