@@ -60,21 +60,21 @@ _Real-time statusline HUD showing 1M context session with 13 intelligent metrics
 
 ## Features
 
-### 📊 **Intelligent Metrics**
+### Intelligent Metrics 📊
 
 - **Cache Efficiency** — Track prompt cache utilization (80%+ = excellent)
 - **API Wait Ratio** — See how much time spent waiting for AI responses
 - **Response Speed** — Real-time tokens/second output rate
 - **Cost Velocity** — Monitor spending rate ($/minute)
 
-### 🎯 **Essential Status**
+### Essential Status 🎯
 
 - **Model Tier Badge** — Color-coded Opus (gold) / Sonnet (cyan) / Haiku (green)
 - **Context Health Bar** — Visual 20-char bar with 4-tier gradient
 - **Token Absolutes** — See exact usage (210K/1M) with adaptive K/M formatting
 - **Usage Quota** — Live 5h/7d limits with reset countdowns
 
-### 🔧 **Workflow Awareness**
+### Workflow Awareness 🔧
 
 - **Git Integration** — Branch name + dirty status (`main*`)
 - **Code Changes** — Track lines added/removed with color coding
@@ -82,14 +82,14 @@ _Real-time statusline HUD showing 1M context session with 13 intelligent metrics
 - **Active Agents** — See running subagents in real-time
 - **Vim Mode** — N/I/V indicators for modal editing
 
-### ⚡ **Custom Thresholds**
+### Custom Thresholds ⚡
 
 - **17 Configurable Values** — Control when every color changes and when danger mode activates
 - **Per-Group Tuning** — Context, cost, cache, speed, API wait, cost velocity, quota
 - **Interactive Setup** — Use `/howl:threshold` to adjust values conversationally
 - **Safe Defaults** — Invalid values auto-corrected, zero values ignored
 
-### 🎨 **Adaptive Layouts**
+### Adaptive Layouts 🎨
 
 - **Normal Mode** (< 85% context, configurable) — 2-4 line display (lines added as features activate)
 - **Danger Mode** (85%+ context, configurable) — Dense 2-line view with token breakdown and hourly cost
@@ -97,11 +97,11 @@ _Real-time statusline HUD showing 1M context session with 13 intelligent metrics
 
 ---
 
-## 💾 Installation
+## Installation 💾
 
 Choose your preferred installation method:
 
-### 🔌 Method 1: Claude Code Plugin (Recommended)
+### Method 1: Claude Code Plugin (Recommended) 🔌
 
 **Current Status:** Available for private repository access only. Will be available on the official Claude Marketplace after public release.
 
@@ -109,7 +109,7 @@ Choose your preferred installation method:
 
 ```bash
 /plugin marketplace add ai-screams/howl
-/plugin install howl@ai-screams-Howl
+/plugin install howl@ai-screams-howl
 /howl:setup
 ```
 
@@ -134,7 +134,7 @@ Or search for "howl" in `/plugin > Discover`.
 
 ---
 
-### 📦 Method 2: Direct Binary Download
+### Method 2: Direct Binary Download 📦
 
 Download the latest binary from [GitHub Releases](https://github.com/ai-screams/howl/releases/latest):
 
@@ -171,7 +171,7 @@ Verify: `~/.claude/hud/howl --version`
 
 ---
 
-### 🛠️ Method 3: Build from Source
+### Method 3: Build from Source 🛠️
 
 Prerequisites: Go 1.24+, Claude Code CLI
 
@@ -186,7 +186,7 @@ The Makefile automatically configures your settings.json.
 
 ---
 
-### ✅ Post-Installation
+### Post-Installation ✅
 
 Restart Claude Code to activate the statusline. The HUD will appear at the bottom of your terminal.
 
@@ -400,7 +400,7 @@ func renderNewMetric(val int) string {
 
 ---
 
-## ⚙️ Configuration
+## Configuration ⚙️
 
 ### Custom Thresholds
 
@@ -453,18 +453,18 @@ No manual configuration needed if Claude Code is authenticated.
 
 ---
 
-## 🗑️ Uninstallation
+## Uninstallation 🗑️
 
 ### If installed via Plugin
 
 ```bash
-/plugin uninstall howl@ai-screams-Howl
+/plugin uninstall howl@ai-screams-howl
 ```
 
 This removes the plugin but keeps the binary. To remove everything:
 
 ```bash
-/plugin uninstall howl@ai-screams-Howl
+/plugin uninstall howl@ai-screams-howl
 rm ~/.claude/hud/howl
 ```
 
@@ -478,7 +478,7 @@ Then remove the `statusLine` field from `~/.claude/settings.json`.
 
 ---
 
-## 🔍 Troubleshooting
+## Troubleshooting 🔍
 
 ### Quota shows `?`
 
@@ -532,7 +532,7 @@ Howl was created to solve specific pain points with existing Claude Code statusl
 
 ---
 
-## 🗺️ Roadmap
+## Roadmap 🗺️
 
 - [x] Configuration file support (`~/.claude/hud/config.json`) — _Available in v1.3.0+_
 - [x] Auto-sync plugin.json version in release pipeline — _Available in v1.4.0+_
@@ -543,13 +543,13 @@ Howl was created to solve specific pain points with existing Claude Code statusl
 
 ---
 
-## 🤝 Contributing
+## Contributing 🤝
 
 This is a personal tool for the AiScream project. Feedback and bug reports welcome!
 
 ---
 
-## 📄 License
+## License 📄
 
 MIT License — see [LICENSE](LICENSE) file for details.
 
@@ -557,7 +557,7 @@ For release history and detailed changes, see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## 💝 Credits
+## Credits 💝
 
 **Project:** [ai-screams/howl](https://github.com/ai-screams/howl)<br>
 **Author:** pignuante<br>
