@@ -42,15 +42,6 @@ func TestSanitizeSessionID(t *testing.T) {
 func TestQuotaColor(t *testing.T) {
 	t.Parallel()
 
-	// ANSI color constants from constants.go
-	const (
-		boldRed = "\033[1;31m"
-		red     = "\033[31m"
-		orange  = "\033[38;5;208m"
-		yellow  = "\033[33m"
-		green   = "\033[32m"
-	)
-
 	tests := []struct {
 		name      string
 		remaining float64
@@ -198,7 +189,7 @@ func TestRenderQuota(t *testing.T) {
 				ResetsAt7d:         baseTime.Add(2 * 24 * time.Hour),
 				FetchedAt:          baseTime.Unix(),
 			},
-			wantContains: []string{"\033[1;31m", "5h:", ":7d"},
+			wantContains: []string{boldRed, "5h:", ":7d"},
 		},
 		{
 			name: "low 5h orange 7d",
@@ -209,7 +200,7 @@ func TestRenderQuota(t *testing.T) {
 				ResetsAt7d:         baseTime.Add(3 * 24 * time.Hour),
 				FetchedAt:          baseTime.Unix(),
 			},
-			wantContains: []string{"\033[31m", "\033[38;5;208m", "5h:", ":7d"},
+			wantContains: []string{red, orange, "5h:", ":7d"},
 		},
 		{
 			name: "medium both",
@@ -220,7 +211,7 @@ func TestRenderQuota(t *testing.T) {
 				ResetsAt7d:         baseTime.Add(6 * 24 * time.Hour),
 				FetchedAt:          baseTime.Unix(),
 			},
-			wantContains: []string{"\033[38;5;208m", "5h:", ":7d"},
+			wantContains: []string{orange, "5h:", ":7d"},
 		},
 		{
 			name: "zero times",
