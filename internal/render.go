@@ -251,8 +251,11 @@ func renderContextBar(percent int, cw ContextWindow, t Thresholds) string {
 	totalTokens := cw.ContextWindowSize
 	usedTokens := totalTokens * percent / 100
 
-	return fmt.Sprintf("%s%s%s%s %d%% (%s/%s)", prefix, color, bar, Reset, percent,
-		formatTokenCount(usedTokens), formatTokenCount(totalTokens))
+	// Pad used tokens to match total's width for fixed-width display
+	total := formatTokenCount(totalTokens)
+	used := fmt.Sprintf("%*s", len(total), formatTokenCount(usedTokens))
+
+	return fmt.Sprintf("%s%s%s%s %3d%% (%s/%s)", prefix, color, bar, Reset, percent, used, total)
 }
 
 // renderContextBarDanger renders context bar with remaining tokens and ETA for danger mode.
@@ -303,7 +306,7 @@ func renderContextBarDanger(percent int, cw ContextWindow, durationMS int64, t T
 		}
 	}
 
-	return fmt.Sprintf("%s%s%s%s %d%% (%s left%s)", prefix, color, bar, Reset, percent,
+	return fmt.Sprintf("%s%s%s%s %3d%% (%s left%s)", prefix, color, bar, Reset, percent,
 		formatTokenCount(remainTokens), eta)
 }
 
@@ -633,7 +636,7 @@ func renderQuotaBar(remainPct float64, resetTime time.Time, label string, t Thre
 		until = formatTimeUntil(now, resetTime)
 	}
 
-	return fmt.Sprintf("%s%s%s %.0f%% (%s/%s)", color, bar, Reset, remainPct, until, label)
+	return fmt.Sprintf("%s%s%s %3.0f%% (%s/%s)", color, bar, Reset, remainPct, until, label)
 }
 
 func formatTimeUntil(now, target time.Time) string {
@@ -650,24 +653,21 @@ func formatTimeUntilWith(now, target time.Time, includeMinutes bool) string {
 	}
 	diff := target.Sub(now)
 	if diff < 0 {
-		return "0"
+		if includeMinutes {
+			return "0h00m"
+		}
+		return "0d00h"
 	}
 
 	hours := int(diff.Hours())
 	minutes := int(diff.Minutes()) % 60
 
-	if hours < 24 {
-		if includeMinutes && minutes > 0 {
-			return fmt.Sprintf("%dh%dm", hours, minutes)
-		}
-		return fmt.Sprintf("%dh", hours)
+	if includeMinutes {
+		return fmt.Sprintf("%dh%02dm", hours, minutes)
 	}
 	days := hours / 24
 	remainHours := hours % 24
-	if remainHours == 0 {
-		return fmt.Sprintf("%dd", days)
-	}
-	return fmt.Sprintf("%dd%dh", days, remainHours)
+	return fmt.Sprintf("%dd%02dh", days, remainHours)
 }
 
 func quotaColor(remaining float64, t Thresholds) string {
