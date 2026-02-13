@@ -55,7 +55,7 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 
 ### Test Conventions
 
-94.8% coverage. Every source file has a `_test.go` pair plus `integration_test.go` for full pipeline tests.
+94.7% coverage. Every source file has a `_test.go` pair plus `integration_test.go` for full pipeline tests.
 
 - **git_test.go** creates real git repos in `t.TempDir()`
 - **usage_test.go** uses package-level var injection (`usageAPIURL`, `getOAuthTokenFunc`) for test substitution — no interfaces
