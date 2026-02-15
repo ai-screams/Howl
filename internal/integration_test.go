@@ -311,10 +311,10 @@ func TestIntegration_NormalMode(t *testing.T) {
 			name:         "vim_and_agent_full_config",
 			json:         jsonVimAndAgent,
 			cfg:          PresetConfig("full"),
-			wantMinLines: 2,
+			wantMinLines: 1,
 			wantMaxLines: 4,
 			wantLineContains: map[int][]string{
-				2: {"N", "@my-agent"}, // Line 3 (index 2) has vim and agent
+				1: {"N", "@my-agent"}, // Line 2 (index 1) has vim and agent (no L2 bars without usage)
 			},
 			wantContains: []string{"claude-sonnet-4.5", "27%"},
 		},
@@ -395,7 +395,7 @@ func TestIntegration_NormalMode(t *testing.T) {
 			}
 
 			m := ComputeMetrics(&d)
-			lines := Render(&d, m, tt.git, tt.usage, tt.tools, tt.account, tt.cfg)
+			lines := Render(RenderContext{Data: &d, Metrics: m, Git: tt.git, Usage: tt.usage, Tools: tt.tools, Account: tt.account, Config: tt.cfg})
 
 			// Verify line count
 			if len(lines) < tt.wantMinLines {
@@ -530,7 +530,7 @@ func TestIntegration_DangerMode(t *testing.T) {
 			}
 
 			m := ComputeMetrics(&d)
-			lines := Render(&d, m, tt.git, tt.usage, tt.tools, nil, DefaultConfig())
+			lines := Render(RenderContext{Data: &d, Metrics: m, Git: tt.git, Usage: tt.usage, Tools: tt.tools, Config: DefaultConfig()})
 
 			// Danger mode always renders exactly 2 lines
 			if len(lines) != 2 {
@@ -613,7 +613,7 @@ func TestIntegration_JSONDecodingEdgeCases(t *testing.T) {
 			m := ComputeMetrics(&d)
 
 			// Should not panic
-			lines := Render(&d, m, nil, nil, nil, nil, DefaultConfig())
+			lines := Render(RenderContext{Data: &d, Metrics: m, Config: DefaultConfig()})
 
 			if len(lines) < tt.wantMinLines {
 				t.Errorf("got %d lines, want at least %d", len(lines), tt.wantMinLines)
@@ -780,7 +780,6 @@ func TestIntegration_PriorityOrdering(t *testing.T) {
 			ResponseSpeed: true,
 			Quota:         true,
 		},
-		Priority: []string{"quota", "git", "account"},
 	}
 
 	git := &GitInfo{Branch: "feature", Dirty: false}
@@ -799,37 +798,33 @@ func TestIntegration_PriorityOrdering(t *testing.T) {
 	}
 
 	m := ComputeMetrics(&d)
-	lines := Render(&d, m, git, usage, nil, account, cfg)
+	lines := Render(RenderContext{Data: &d, Metrics: m, Git: git, Usage: usage, Account: account, Config: cfg})
 
-	if len(lines) < 2 {
-		t.Fatalf("expected at least 2 lines, got %d", len(lines))
+	if len(lines) < 3 {
+		t.Fatalf("expected at least 3 lines, got %d", len(lines))
 	}
 
+	// New layout: line1 has account+git+speed+cost+duration, line2 has bars, line3 has metrics
+	line1 := lines[0]
 	line2 := lines[1]
 
-	// Find positions of quota, git, and account in line 2
-	quotaPos := strings.Index(line2, "80%")   // quota indicator
-	gitPos := strings.Index(line2, "feature") // git branch
-	accountPos := strings.Index(line2, "test@example.com")
-
-	if quotaPos == -1 {
-		t.Error("line 2 missing quota")
+	// Line 1 should contain account and git
+	if !strings.Contains(line1, "test@example.com") {
+		t.Error("line 1 missing account")
 	}
-	if gitPos == -1 {
-		t.Error("line 2 missing git")
-	}
-	if accountPos == -1 {
-		t.Error("line 2 missing account")
+	if !strings.Contains(line1, "feature") {
+		t.Error("line 1 missing git branch")
 	}
 
-	// Verify ordering: quota before git, git before account
-	if quotaPos != -1 && gitPos != -1 && quotaPos >= gitPos {
-		t.Errorf("quota should appear before git: quota pos=%d, git pos=%d\nLine: %s",
-			quotaPos, gitPos, line2)
+	// Line 2 should contain context bar and quota bars
+	if !strings.Contains(line2, "27%") { // context percent (27.5 truncates to 27)
+		t.Error("line 2 missing context bar")
 	}
-	if gitPos != -1 && accountPos != -1 && gitPos >= accountPos {
-		t.Errorf("git should appear before account: git pos=%d, account pos=%d\nLine: %s",
-			gitPos, accountPos, line2)
+	if !strings.Contains(line2, "80%") {
+		t.Error("line 2 missing 5h quota bar")
+	}
+	if !strings.Contains(line2, "90%") {
+		t.Error("line 2 missing 7d quota bar")
 	}
 }
 
@@ -852,7 +847,7 @@ func TestIntegration_CustomThresholds(t *testing.T) {
 
 	// With default config, 85% triggers danger mode (exactly 2 lines)
 	defaultCfg := DefaultConfig()
-	dangerLines := Render(&d, m, nil, nil, nil, nil, defaultCfg)
+	dangerLines := Render(RenderContext{Data: &d, Metrics: m, Config: defaultCfg})
 	if len(dangerLines) != 2 {
 		t.Fatalf("default config at 85%% should produce danger mode (2 lines), got %d", len(dangerLines))
 	}
@@ -864,7 +859,8 @@ func TestIntegration_CustomThresholds(t *testing.T) {
 	customCfg.Thresholds.ContextWarning = 80
 
 	git := &GitInfo{Branch: "main", Dirty: true}
-	normalLines := Render(&d, m, git, nil, nil, nil, customCfg)
+	usage := &UsageData{RemainingPercent5h: 60.0, RemainingPercent7d: 80.0}
+	normalLines := Render(RenderContext{Data: &d, Metrics: m, Git: git, Usage: usage, Config: customCfg})
 
 	if len(normalLines) <= 2 {
 		t.Errorf("custom danger=90 at 85%% should produce normal mode (>2 lines), got %d lines", len(normalLines))

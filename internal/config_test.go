@@ -102,8 +102,8 @@ func TestLoadConfig_ValidPresets(t *testing.T) {
 	}{
 		{"full", true, true, true, true, true},
 		{"minimal", false, false, false, false, false},
-		{"developer", true, true, false, false, false},
-		{"cost-focused", false, false, false, true, true},
+		{"developer", true, true, true, true, false},
+		{"cost-focused", true, false, false, true, true},
 	}
 
 	for _, tt := range tests {
@@ -212,7 +212,7 @@ func TestLoadConfig_FeaturesIgnored(t *testing.T) {
 	}
 }
 
-// --- v1.1 Tests: mergeFeatures + validatePriority ---
+// --- v1.1 Tests: mergeFeatures ---
 
 func TestMergeFeatures_AllFalse(t *testing.T) {
 	base := FeatureToggles{Account: true, Git: true, Tools: true}
@@ -254,66 +254,6 @@ func TestMergeFeatures_AllTrue(t *testing.T) {
 	}
 }
 
-func TestValidatePriority_Empty(t *testing.T) {
-	result := validatePriority([]string{})
-	if result != nil {
-		t.Errorf("empty input should return nil, got %v", result)
-	}
-}
-
-func TestValidatePriority_Duplicates(t *testing.T) {
-	input := []string{"account", "git", "account", "quota"}
-	result := validatePriority(input)
-	if len(result) != 3 {
-		t.Errorf("expected 3 unique items, got %d: %v", len(result), result)
-	}
-	// Check account appears only once
-	count := 0
-	for _, m := range result {
-		if m == "account" {
-			count++
-		}
-	}
-	if count != 1 {
-		t.Errorf("expected account to appear once, got %d", count)
-	}
-}
-
-func TestValidatePriority_Normalization(t *testing.T) {
-	input := []string{"Account", "GIT ", " line_changes", "RESPONSE_SPEED"}
-	result := validatePriority(input)
-	if len(result) != 4 {
-		t.Errorf("expected 4 items, got %d: %v", len(result), result)
-	}
-	for _, m := range result {
-		if m != strings.ToLower(strings.TrimSpace(m)) {
-			t.Errorf("metric %s should be normalized", m)
-		}
-	}
-}
-
-func TestValidatePriority_InvalidMetrics(t *testing.T) {
-	input := []string{"account", "tools", "cache_efficiency", "git"}
-	result := validatePriority(input)
-	// tools and cache_efficiency are Line 3/4, should be filtered out
-	if len(result) != 2 {
-		t.Errorf("expected 2 valid Line 2 metrics, got %d: %v", len(result), result)
-	}
-	for _, m := range result {
-		if !validLine2Metrics[m] {
-			t.Errorf("result should only contain Line 2 metrics, got %s", m)
-		}
-	}
-}
-
-func TestValidatePriority_MaxFive(t *testing.T) {
-	input := []string{"account", "git", "line_changes", "response_speed", "quota", "extra1", "extra2"}
-	result := validatePriority(input)
-	if len(result) != 5 {
-		t.Errorf("expected max 5 items, got %d: %v", len(result), result)
-	}
-}
-
 func TestLoadConfig_WithFeaturesOverride(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
@@ -338,50 +278,6 @@ func TestLoadConfig_WithFeaturesOverride(t *testing.T) {
 	}
 	if cfg.Features.Account {
 		t.Errorf("minimal base should keep account=false")
-	}
-}
-
-func TestLoadConfig_WithPriority(t *testing.T) {
-	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
-
-	configDir := filepath.Join(tmpDir, ".claude", "hud")
-	os.MkdirAll(configDir, 0755)
-	configPath := filepath.Join(configDir, "config.json")
-
-	content := `{"preset":"developer","priority":["quota","git","account"]}`
-	os.WriteFile(configPath, []byte(content), 0644)
-
-	cfg := LoadConfig()
-	if len(cfg.Priority) != 3 {
-		t.Errorf("expected 3 priority items, got %d: %v", len(cfg.Priority), cfg.Priority)
-	}
-	if cfg.Priority[0] != "quota" || cfg.Priority[1] != "git" || cfg.Priority[2] != "account" {
-		t.Errorf("priority order should be [quota, git, account], got %v", cfg.Priority)
-	}
-}
-
-func TestLoadConfig_PriorityWithInvalid(t *testing.T) {
-	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
-
-	configDir := filepath.Join(tmpDir, ".claude", "hud")
-	os.MkdirAll(configDir, 0755)
-	configPath := filepath.Join(configDir, "config.json")
-
-	// Include invalid metrics (tools, cache_efficiency are Line 3/4)
-	content := `{"preset":"full","priority":["quota","tools","git","cache_efficiency","account"]}`
-	os.WriteFile(configPath, []byte(content), 0644)
-
-	cfg := LoadConfig()
-	// Only quota, git, account should remain
-	if len(cfg.Priority) != 3 {
-		t.Errorf("expected 3 valid items (invalid filtered), got %d: %v", len(cfg.Priority), cfg.Priority)
-	}
-	for _, m := range cfg.Priority {
-		if !validLine2Metrics[m] {
-			t.Errorf("priority should only contain Line 2 metrics, got %s", m)
-		}
 	}
 }
 

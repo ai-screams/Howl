@@ -21,7 +21,6 @@ const (
 	blue    = "\033[34m"
 	magenta = "\033[35m"
 	cyan    = "\033[36m"
-	white   = "\033[37m"
 	boldRed = "\033[1;31m"
 	boldYlw = "\033[1;33m" // gold for opus
 	orange  = "\033[38;5;208m"
@@ -30,59 +29,103 @@ const (
 
 // Render produces lines for the statusline display.
 // Normal mode: 2-4 lines (depending on active features). Danger mode (configurable, default 85%+): 2 dense lines.
-func Render(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, tools *ToolInfo, account *AccountInfo, cfg Config) []string {
-	if cfg.Thresholds == (Thresholds{}) {
-		cfg.Thresholds = DefaultThresholds()
+func Render(rc RenderContext) []string {
+	if rc.Config.Thresholds == (Thresholds{}) {
+		rc.Config.Thresholds = DefaultThresholds()
 	}
-	if m.ContextPercent >= cfg.Thresholds.ContextDanger {
-		return renderDangerMode(d, m, git, usage, tools, cfg.Thresholds)
+	if rc.Metrics.ContextPercent >= rc.Config.Thresholds.ContextDanger {
+		return renderDangerMode(rc)
 	}
-	return renderNormalMode(d, m, git, usage, tools, account, cfg)
+	return renderNormalMode(rc)
 }
 
-func buildLine1(d *StdinData, m Metrics, t Thresholds) []string {
-	line1 := make([]string, 0, 5)
-	line1 = append(line1, renderModelBadge(d.Model))
-	line1 = append(line1, renderContextBar(m.ContextPercent, d.ContextWindow, t))
+func renderNormalMode(rc RenderContext) []string {
+	d, m, git, usage, tools, account, cfg := rc.Data, rc.Metrics, rc.Git, rc.Usage, rc.Tools, rc.Account, rc.Config
+	t := cfg.Thresholds
+
+	// Determine if quota bars will be shown
+	hasQuotaBars := cfg.Features.Quota && usage != nil
+
+	// Line 1: model(+context size) | account | git | speed | cost | duration
+	// When no quota bars, context bar is inlined into L1 (minimal/developer compact)
+	line1 := make([]string, 0, 8)
+	if hasQuotaBars {
+		line1 = append(line1, renderModelBadge(d.Model, d.ContextWindow.ContextWindowSize))
+	} else {
+		line1 = append(line1, renderModelBadge(d.Model, 0))
+		line1 = append(line1, renderContextBar(m.ContextPercent, d.ContextWindow, t))
+	}
+	if cfg.Features.Account && account != nil && account.EmailAddress != "" {
+		line1 = append(line1, renderAccount(account))
+	}
+	if cfg.Features.Git && git != nil && git.Branch != "" {
+		line1 = append(line1, renderGitCompact(git))
+	}
+	if cfg.Features.ResponseSpeed && m.ResponseSpeed != nil && *m.ResponseSpeed > 0 {
+		line1 = append(line1, renderResponseSpeed(*m.ResponseSpeed, t))
+	}
 	if costStr := renderCost(d.Cost.TotalCostUSD, t); costStr != "" {
 		line1 = append(line1, costStr)
 	}
 	line1 = append(line1, renderDuration(d.Cost.TotalDurationMS))
-	return line1
-}
 
-func renderNormalMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, tools *ToolInfo, account *AccountInfo, cfg Config) []string {
-	t := cfg.Thresholds
-	line1 := buildLine1(d, m, t)
-
-	// Line 2: account | git | code changes | speed | quota (with priority support)
-	line2 := buildLine2WithPriority(d, m, cfg, git, account, usage)
-
-	// Line 3: tools and agents (conditional)
-	line3 := make([]string, 0, 3)
-	if cfg.Features.Tools && tools != nil && len(tools.Tools) > 0 {
-		line3 = append(line3, renderTools(tools.Tools))
-	}
-	if cfg.Features.Agents && tools != nil && len(tools.Agents) > 0 {
-		line3 = append(line3, renderAgents(tools.Agents))
+	// Line 2: context bar | 5h quota bar | 7d quota bar (only when quota bars exist)
+	var line2 []string
+	if hasQuotaBars {
+		line2 = make([]string, 0, 3)
+		line2 = append(line2, renderContextBar(m.ContextPercent, d.ContextWindow, t))
+		line2 = append(line2, renderQuotaBar(usage.RemainingPercent5h, usage.ResetsAt5h, "5h", t))
+		line2 = append(line2, renderQuotaBar(usage.RemainingPercent7d, usage.ResetsAt7d, "7d", t))
 	}
 
-	// Line 4: metrics + vim/agent (conditional)
-	line4 := make([]string, 0, 6)
+	// Line 3: line changes | cache | wait | cost velocity (+ vim/agent conditionally)
+	line3 := make([]string, 0, 7)
+	if cfg.Features.LineChanges {
+		if lines := renderLineChanges(d.Cost); lines != "" {
+			line3 = append(line3, lines)
+		}
+	}
 	if cfg.Features.CacheEfficiency && m.CacheEfficiency != nil && *m.CacheEfficiency > 0 {
-		line4 = append(line4, renderCacheEfficiencyLabeled(*m.CacheEfficiency, t))
+		line3 = append(line3, renderCacheEfficiencyLabeled(*m.CacheEfficiency, t, d.ContextWindow.CurrentUsage))
 	}
 	if cfg.Features.APIWaitRatio && m.APIWaitRatio != nil && *m.APIWaitRatio > 0 {
-		line4 = append(line4, renderAPIRatioLabeled(*m.APIWaitRatio, t))
+		line3 = append(line3, renderAPIRatioLabeled(*m.APIWaitRatio, t))
 	}
 	if cfg.Features.CostVelocity && m.CostPerMinute != nil {
-		line4 = append(line4, renderCostVelocityLabeled(*m.CostPerMinute, t))
+		line3 = append(line3, renderCostVelocityLabeled(*m.CostPerMinute, t))
 	}
 	if cfg.Features.VimMode && d.Vim != nil && d.Vim.Mode != "" {
-		line4 = append(line4, renderVimCompact(d.Vim.Mode))
+		line3 = append(line3, renderVimCompact(d.Vim.Mode))
 	}
 	if cfg.Features.AgentName && d.Agent != nil && d.Agent.Name != "" {
-		line4 = append(line4, renderAgentCompact(d.Agent.Name))
+		line3 = append(line3, renderAgentCompact(d.Agent.Name))
+	}
+	if v := renderVersion(d.Version); v != "" {
+		line3 = append(line3, v)
+	}
+
+	// Line 4: tools and agents with shared width budget
+	line4 := make([]string, 0, 3)
+
+	// Pre-render agents to calculate remaining budget for tools
+	var agentStr string
+	if cfg.Features.Agents && tools != nil && len(tools.Agents) > 0 {
+		agentStr = renderAgents(tools.Agents)
+	}
+
+	toolBudget := maxToolLineWidth
+	if agentStr != "" {
+		toolBudget -= visibleLen(agentStr) + 3 // 3 for " | " separator
+	}
+	if toolBudget < 20 {
+		toolBudget = 20
+	}
+
+	if cfg.Features.Tools && tools != nil && len(tools.Tools) > 0 {
+		line4 = append(line4, renderTools(tools.Tools, toolBudget))
+	}
+	if agentStr != "" {
+		line4 = append(line4, agentStr)
 	}
 
 	lines := []string{joinParts(line1)}
@@ -98,94 +141,25 @@ func renderNormalMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, t
 	return lines
 }
 
-// buildLine2WithPriority constructs Line 2 with priority-based ordering.
-// Priority metrics are rendered first (in specified order), followed by remaining metrics in default order.
-// Uses added map to prevent duplicate rendering.
-func buildLine2WithPriority(d *StdinData, m Metrics, cfg Config, git *GitInfo, account *AccountInfo, usage *UsageData) []string {
-	t := cfg.Thresholds
-	line2 := make([]string, 0, 7)
-	added := make(map[string]bool, 5)
+func renderDangerMode(rc RenderContext) []string {
+	d, m, git, usage, t := rc.Data, rc.Metrics, rc.Git, rc.Usage, rc.Config.Thresholds
+	// L1: model | 🔴 danger context bar (remaining+ETA) | 5h quota bar | 7d quota bar
+	line1 := make([]string, 0, 4)
+	line1 = append(line1, renderModelBadge(d.Model, 0))
+	line1 = append(line1, renderContextBarDanger(m.ContextPercent, d.ContextWindow, d.Cost.TotalDurationMS, t))
 
-	// Step 1: Render priority metrics first
-	for _, metric := range cfg.Priority {
-		if added[metric] {
-			continue // Skip if already added
+	if usage != nil {
+		if usage.RemainingPercent5h > 0 || !usage.ResetsAt5h.IsZero() {
+			line1 = append(line1, renderQuotaBar(usage.RemainingPercent5h, usage.ResetsAt5h, "5h", t))
 		}
-
-		switch metric {
-		case "account":
-			if cfg.Features.Account && account != nil && account.EmailAddress != "" {
-				line2 = append(line2, renderAccount(account))
-				added["account"] = true
-			}
-		case "git":
-			if cfg.Features.Git && git != nil && git.Branch != "" {
-				line2 = append(line2, renderGitCompact(git))
-				added["git"] = true
-			}
-		case "line_changes":
-			if cfg.Features.LineChanges {
-				if lines := renderLineChanges(d.Cost); lines != "" {
-					line2 = append(line2, lines)
-					added["line_changes"] = true
-				}
-			}
-		case "response_speed":
-			if cfg.Features.ResponseSpeed && m.ResponseSpeed != nil && *m.ResponseSpeed > 0 {
-				line2 = append(line2, renderResponseSpeed(*m.ResponseSpeed, t))
-				added["response_speed"] = true
-			}
-		case "quota":
-			if cfg.Features.Quota && usage != nil {
-				line2 = append(line2, renderQuota(usage, t))
-				added["quota"] = true
-			}
+		if usage.RemainingPercent7d > 0 || !usage.ResetsAt7d.IsZero() {
+			line1 = append(line1, renderQuotaBar(usage.RemainingPercent7d, usage.ResetsAt7d, "7d", t))
 		}
 	}
 
-	// Step 2: Render remaining metrics in default order
-	defaultOrder := []string{"account", "git", "line_changes", "response_speed", "quota"}
-	for _, metric := range defaultOrder {
-		if added[metric] {
-			continue // Skip if already rendered in priority
-		}
+	// L2: workspace/git | Δchanges | In:XK Out:XK | C:X% | speed | $cost $cost/h | duration
+	line2 := make([]string, 0, 8)
 
-		switch metric {
-		case "account":
-			if cfg.Features.Account && account != nil && account.EmailAddress != "" {
-				line2 = append(line2, renderAccount(account))
-			}
-		case "git":
-			if cfg.Features.Git && git != nil && git.Branch != "" {
-				line2 = append(line2, renderGitCompact(git))
-			}
-		case "line_changes":
-			if cfg.Features.LineChanges {
-				if lines := renderLineChanges(d.Cost); lines != "" {
-					line2 = append(line2, lines)
-				}
-			}
-		case "response_speed":
-			if cfg.Features.ResponseSpeed && m.ResponseSpeed != nil && *m.ResponseSpeed > 0 {
-				line2 = append(line2, renderResponseSpeed(*m.ResponseSpeed, t))
-			}
-		case "quota":
-			if cfg.Features.Quota && usage != nil {
-				line2 = append(line2, renderQuota(usage, t))
-			}
-		}
-	}
-
-	return line2
-}
-
-func renderDangerMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, _ *ToolInfo, t Thresholds) []string {
-	line1 := buildLine1(d, m, t)
-
-	// Line 2: workspace/git | changes | token breakdown | speed | metrics
-	line2 := make([]string, 0, 10)
-
-	// Workspace + git
 	if ws := renderWorkspace(d); ws != "" {
 		if git != nil && git.Branch != "" {
 			line2 = append(line2, ws+renderGitCompact(git))
@@ -194,49 +168,37 @@ func renderDangerMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, _
 		}
 	}
 
-	// Code changes
 	if lines := renderLineChanges(d.Cost); lines != "" {
 		line2 = append(line2, lines)
 	}
 
-	// Token breakdown: In:XXK Out:YYK Cache:ZZK
 	if cu := d.ContextWindow.CurrentUsage; cu != nil {
-		line2 = append(line2, renderTokenBreakdown(cu))
+		line2 = append(line2, renderTokenIO(cu))
 	}
 
-	// Performance metrics
-	if m.ResponseSpeed != nil && *m.ResponseSpeed > 0 {
-		line2 = append(line2, renderResponseSpeed(*m.ResponseSpeed, t))
-	}
 	if m.CacheEfficiency != nil {
 		line2 = append(line2, renderCacheEfficiencyCompact(*m.CacheEfficiency, t))
 	}
-	if m.APIWaitRatio != nil {
-		line2 = append(line2, renderAPIRatioCompact(*m.APIWaitRatio, t))
-	}
-	if m.CostPerMinute != nil {
-		// Show hourly cost in danger mode
-		hourly := *m.CostPerMinute * 60
-		line2 = append(line2, fmt.Sprintf("%s$%.1f/h%s", yellow, hourly, Reset))
+
+	if m.ResponseSpeed != nil && *m.ResponseSpeed > 0 {
+		line2 = append(line2, renderResponseSpeed(*m.ResponseSpeed, t))
 	}
 
-	// Vim/Agent
-	if d.Vim != nil && d.Vim.Mode != "" {
-		line2 = append(line2, renderVimCompact(d.Vim.Mode))
-	}
-	if d.Agent != nil && d.Agent.Name != "" {
-		line2 = append(line2, renderAgentCompact(d.Agent.Name))
+	if costStr := renderCost(d.Cost.TotalCostUSD, t); costStr != "" {
+		costParts := costStr
+		if m.CostPerMinute != nil {
+			hourly := *m.CostPerMinute * 60
+			costParts += " " + fmt.Sprintf("%s$%.1f/h%s", yellow, hourly, Reset)
+		}
+		line2 = append(line2, costParts)
 	}
 
-	// Quota at the end of line 2 (danger mode)
-	if usage != nil {
-		line2 = append(line2, renderQuota(usage, t))
-	}
+	line2 = append(line2, renderDuration(d.Cost.TotalDurationMS))
 
 	return []string{joinParts(line1), joinParts(line2)}
 }
 
-func renderModelBadge(m Model) string {
+func renderModelBadge(m Model, contextSize int) string {
 	name := m.DisplayName
 	if name == "" {
 		name = m.ID
@@ -252,6 +214,11 @@ func renderModelBadge(m Model) string {
 		suffix = " BR" // Bedrock
 	} else if strings.Contains(lowerID, "publishers/anthropic") {
 		suffix = " VX" // Vertex
+	}
+
+	// Append context window size (only for large windows like 1M+)
+	if contextSize >= 1000000 {
+		suffix += " (" + formatTokenCount(contextSize) + " context)"
 	}
 
 	var color string
@@ -270,22 +237,9 @@ func renderModelBadge(m Model) string {
 }
 
 func renderContextBar(percent int, cw ContextWindow, t Thresholds) string {
-	const width = 20
-	filled := width * percent / 100
-	if filled > width {
-		filled = width
-	}
-	empty := width - filled
-
-	var b strings.Builder
-	b.Grow(width)
-	for i := 0; i < filled; i++ {
-		b.WriteRune('█')
-	}
-	for i := 0; i < empty; i++ {
-		b.WriteRune('░')
-	}
-	bar := b.String()
+	const width = 10
+	filled := min(width*percent/100, width)
+	bar := buildBar(filled, width)
 
 	color := contextColor(percent, t)
 	prefix := ""
@@ -300,8 +254,57 @@ func renderContextBar(percent int, cw ContextWindow, t Thresholds) string {
 	totalTokens := cw.ContextWindowSize
 	usedTokens := totalTokens * percent / 100
 
-	return fmt.Sprintf("%s%s%s%s %d%% (%s/%s)", prefix, color, bar, Reset, percent,
-		formatTokenCount(usedTokens), formatTokenCount(totalTokens))
+	// Pad used tokens to match total's width for fixed-width display
+	total := formatTokenCount(totalTokens)
+	used := fmt.Sprintf("%*s", len(total), formatTokenCount(usedTokens))
+
+	return fmt.Sprintf("%s%s%s%s %3d%% (%s/%s)", prefix, color, bar, Reset, percent, used, total)
+}
+
+// renderContextBarDanger renders context bar with remaining tokens and ETA for danger mode.
+func renderContextBarDanger(percent int, cw ContextWindow, durationMS int64, t Thresholds) string {
+	const width = 10
+	filled := min(width*percent/100, width)
+	bar := buildBar(filled, width)
+
+	color := contextColor(percent, t)
+	prefix := "🔴 "
+
+	// Remaining tokens
+	totalTokens := cw.ContextWindowSize
+	usedTokens := totalTokens * percent / 100
+	remainTokens := totalTokens - usedTokens
+
+	// ETA: estimate minutes until context is full
+	eta := ""
+	durationMin := float64(durationMS) / msPerMinute
+	if percent > 0 && durationMin > 0 {
+		remainPct := float64(100 - percent)
+		etaMin := remainPct * durationMin / float64(percent)
+		if etaMin < 1 {
+			eta = " ~<1m"
+		} else if etaMin < 60 {
+			eta = fmt.Sprintf(" ~%.0fm", etaMin)
+		} else {
+			h := int(etaMin) / 60
+			m := int(etaMin) % 60
+			if m == 0 {
+				eta = fmt.Sprintf(" ~%dh", h)
+			} else {
+				eta = fmt.Sprintf(" ~%dh%dm", h, m)
+			}
+		}
+	}
+
+	return fmt.Sprintf("%s%s%s%s %3d%% (%s left%s)", prefix, color, bar, Reset, percent,
+		formatTokenCount(remainTokens), eta)
+}
+
+// renderTokenIO renders only In/Out token counts (without cache, used in danger mode).
+func renderTokenIO(cu *CurrentUsage) string {
+	return fmt.Sprintf("%sIn:%s%s %sOut:%s%s",
+		grey, formatTokenCount(cu.InputTokens), Reset,
+		grey, formatTokenCount(cu.OutputTokens), Reset)
 }
 
 func contextColor(p int, t Thresholds) string {
@@ -328,7 +331,7 @@ func renderCost(usd float64, t Thresholds) string {
 	case usd >= t.SessionCostMedium:
 		color = yellow
 	default:
-		color = white
+		color = Reset
 	}
 	if usd < 10 {
 		return fmt.Sprintf("%s$%.2f%s", color, usd, Reset)
@@ -337,7 +340,7 @@ func renderCost(usd float64, t Thresholds) string {
 }
 
 func renderDuration(ms int64) string {
-	minutes := ms / 60000
+	minutes := ms / msPerMinute
 	if minutes < 1 {
 		return grey + "<1m" + Reset
 	}
@@ -393,7 +396,7 @@ func renderLineChanges(c Cost) string {
 	}
 	add := formatCount(c.TotalLinesAdded)
 	del := formatCount(c.TotalLinesRemoved)
-	return fmt.Sprintf("%s+%s%s/%s-%s%s", green, add, Reset, red, del, Reset)
+	return fmt.Sprintf("%sΔ%s%s+%s%s/%s-%s%s", grey, Reset, green, add, Reset, red, del, Reset)
 }
 
 func cacheColor(pct int, t Thresholds) string {
@@ -411,8 +414,14 @@ func renderCacheEfficiencyCompact(pct int, t Thresholds) string {
 	return fmt.Sprintf("%sC%d%%%s", cacheColor(pct, t), pct, Reset)
 }
 
-func renderCacheEfficiencyLabeled(pct int, t Thresholds) string {
-	return fmt.Sprintf("%sCache:%s%d%%%s", grey, cacheColor(pct, t), pct, Reset)
+func renderCacheEfficiencyLabeled(pct int, t Thresholds, cu *CurrentUsage) string {
+	base := fmt.Sprintf("%sCache:%s%d%%%s", grey, cacheColor(pct, t), pct, Reset)
+	if cu == nil {
+		return base
+	}
+	w := formatTokenCount(cu.CacheCreationInputTokens)
+	r := formatTokenCount(cu.CacheReadInputTokens)
+	return fmt.Sprintf("%s%s(W:%s/R:%s)%s", base, grey, w, r, Reset)
 }
 
 func apiRatioColor(pct int, t Thresholds) string {
@@ -424,10 +433,6 @@ func apiRatioColor(pct int, t Thresholds) string {
 	default:
 		return green
 	}
-}
-
-func renderAPIRatioCompact(pct int, t Thresholds) string {
-	return fmt.Sprintf("%sA%d%%%s", apiRatioColor(pct, t), pct, Reset)
 }
 
 func renderAPIRatioLabeled(pct int, t Thresholds) string {
@@ -466,16 +471,23 @@ func renderVimCompact(mode string) string {
 	switch m {
 	case "normal":
 		color = blue
-		return color + "N" + Reset
+		return color + "Normal" + Reset
 	case "insert":
 		color = green
-		return color + "I" + Reset
+		return color + "Insert" + Reset
 	case "visual":
 		color = magenta
-		return color + "V" + Reset
+		return color + "Visual" + Reset
 	default:
 		return ""
 	}
+}
+
+func renderVersion(version string) string {
+	if version == "" {
+		return ""
+	}
+	return grey + "v" + version + Reset
 }
 
 func renderAgentCompact(name string) string {
@@ -486,14 +498,44 @@ func renderAgentCompact(name string) string {
 	return cyan + "@" + name + Reset
 }
 
-func renderTokenBreakdown(cu *CurrentUsage) string {
-	return fmt.Sprintf("%sIn:%s%s %sOut:%s%s %sCache:%s%s",
-		grey, formatTokenCount(cu.InputTokens), Reset,
-		grey, formatTokenCount(cu.OutputTokens), Reset,
-		green, formatTokenCount(cu.CacheReadInputTokens), Reset)
+const (
+	maxToolNameLen   = 12
+	maxToolLineWidth = 80
+)
+
+// visibleLen computes the display width of a string, excluding ANSI escape sequences.
+// This implementation assumes all ANSI codes follow the CSI SGR (Select Graphic Rendition)
+// pattern: \033[...m. This is valid for this codebase, which uses only standard SGR codes
+// (colors, bold, dim) and 8-bit extended colors (\033[38;5;Nm). Other escape sequence
+// types (like cursor movement or OSC sequences) are not used and would require different parsing.
+func visibleLen(s string) int {
+	inEscape := false
+	count := 0
+	for _, r := range s {
+		if r == '\033' {
+			inEscape = true
+			continue
+		}
+		if inEscape {
+			if r == 'm' {
+				inEscape = false
+			}
+			continue
+		}
+		count++
+	}
+	return count
 }
 
-func renderTools(tools map[string]int) string {
+func truncateToolName(name string, maxLen int) string {
+	runes := []rune(name)
+	if len(runes) <= maxLen {
+		return name
+	}
+	return string(runes[:maxLen-1]) + "…"
+}
+
+func renderTools(tools map[string]int, maxWidth int) string {
 	if len(tools) == 0 {
 		return ""
 	}
@@ -513,16 +555,32 @@ func renderTools(tools map[string]int) string {
 		entries = entries[:5]
 	}
 
-	parts := make([]string, len(entries))
-	for i, e := range entries {
-		parts[i] = fmt.Sprintf("%s%s%s(%d)", blue, e.name, Reset, e.count)
-	}
-	result := ""
-	for i, p := range parts {
-		if i > 0 {
+	var result string
+	shown := 0
+	for _, e := range entries {
+		name := truncateToolName(e.name, maxToolNameLen)
+		part := fmt.Sprintf("%s%s%s(%d)", blue, name, Reset, e.count)
+
+		candidate := result
+		if shown > 0 {
+			candidate += " "
+		}
+		candidate += part
+
+		// Always show at least 1 tool; after that, check budget
+		if shown > 0 && visibleLen(candidate) > maxWidth {
+			remaining := len(entries) - shown
+			if remaining > 0 {
+				result += fmt.Sprintf(" +%d", remaining)
+			}
+			break
+		}
+
+		if shown > 0 {
 			result += " "
 		}
-		result += p
+		result += part
+		shown++
 	}
 	return result
 }
@@ -564,41 +622,52 @@ func formatTokenCount(tokens int) string {
 	return fmt.Sprintf("%.0fK", float64(tokens)/1000.0)
 }
 
-// renderQuota formats 5h/7d remaining percentage for display.
-func renderQuota(u *UsageData, t Thresholds) string {
-	color5 := quotaColor(u.RemainingPercent5h, t)
-	color7 := quotaColor(u.RemainingPercent7d, t)
+func renderQuotaBar(remainPct float64, resetTime time.Time, label string, t Thresholds) string {
+	const width = 10
+	filled := max(0, min(int(remainPct)*width/100, width))
+	bar := buildBar(filled, width)
 
+	color := quotaColor(remainPct, t)
 	now := time.Now()
-	until5h := formatTimeUntil(now, u.ResetsAt5h)
-	until7d := formatTimeUntil(now, u.ResetsAt7d)
+	var until string
+	if label == "5h" {
+		until = formatTimeUntilWithMinutes(now, resetTime)
+	} else {
+		until = formatTimeUntil(now, resetTime)
+	}
 
-	return fmt.Sprintf("%s(%s)5h:%s %s%.0f%%%s/%s%.0f%%%s %s:7d(%s)%s",
-		dim, until5h, Reset,
-		color5, u.RemainingPercent5h, Reset,
-		color7, u.RemainingPercent7d, Reset,
-		grey, until7d, Reset)
+	return fmt.Sprintf("%s%s%s %3.0f%% (%s/%s)", color, bar, Reset, remainPct, until, label)
 }
 
 func formatTimeUntil(now, target time.Time) string {
+	return formatTimeUntilWith(now, target, false)
+}
+
+func formatTimeUntilWithMinutes(now, target time.Time) string {
+	return formatTimeUntilWith(now, target, true)
+}
+
+func formatTimeUntilWith(now, target time.Time, includeMinutes bool) string {
 	if target.IsZero() {
 		return "?"
 	}
 	diff := target.Sub(now)
 	if diff < 0 {
-		return "0"
+		if includeMinutes {
+			return "0h00m"
+		}
+		return "0d00h"
 	}
 
 	hours := int(diff.Hours())
-	if hours < 24 {
-		return fmt.Sprintf("%dh", hours)
+	minutes := int(diff.Minutes()) % 60
+
+	if includeMinutes {
+		return fmt.Sprintf("%dh%02dm", hours, minutes)
 	}
 	days := hours / 24
 	remainHours := hours % 24
-	if remainHours == 0 {
-		return fmt.Sprintf("%dd", days)
-	}
-	return fmt.Sprintf("%dd%dh", days, remainHours)
+	return fmt.Sprintf("%dd%02dh", days, remainHours)
 }
 
 func quotaColor(remaining float64, t Thresholds) string {
@@ -614,6 +683,19 @@ func quotaColor(remaining float64, t Thresholds) string {
 	default:
 		return green
 	}
+}
+
+// buildBar creates a fixed-width progress bar with filled (█) and empty (░) characters.
+func buildBar(filled, width int) string {
+	var b strings.Builder
+	b.Grow(width)
+	for range filled {
+		b.WriteRune('█')
+	}
+	for range width - filled {
+		b.WriteRune('░')
+	}
+	return b.String()
 }
 
 func joinParts(parts []string) string {

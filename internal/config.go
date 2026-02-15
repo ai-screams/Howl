@@ -9,20 +9,10 @@ import (
 
 const maxConfigSize = 4096 // 4KB limit
 
-// validLine2Metrics defines the allowed metrics for Priority (Line 2 only).
-var validLine2Metrics = map[string]bool{
-	"account":        true,
-	"git":            true,
-	"line_changes":   true,
-	"response_speed": true,
-	"quota":          true,
-}
-
 // Config represents user's statusline configuration.
 type Config struct {
 	Preset     string         `json:"preset"`
 	Features   FeatureToggles `json:"features"`   // v1.1: override preset base
-	Priority   []string       `json:"priority"`   // v1.1: Line 2 metric order (max 5)
 	Thresholds Thresholds     `json:"thresholds"` // v1.5: custom color/behavior thresholds
 }
 
@@ -62,7 +52,6 @@ type FeatureToggles struct {
 	CostVelocity    bool `json:"cost_velocity"`
 	VimMode         bool `json:"vim_mode"`
 	AgentName       bool `json:"agent_name"`
-	// TokenBreakdown bool `json:"token_breakdown"` // Reserved for danger mode only (v1.1+)
 }
 
 var presets = map[string]FeatureToggles{
@@ -86,13 +75,18 @@ var presets = map[string]FeatureToggles{
 		Git:             true,
 		LineChanges:     true,
 		ResponseSpeed:   true,
+		Quota:           true,
+		Tools:           true,
+		Agents:          true,
 		CacheEfficiency: true,
 		VimMode:         true,
 	},
 	"cost-focused": {
-		Quota:        true,
-		APIWaitRatio: true,
-		CostVelocity: true,
+		Account:       true,
+		ResponseSpeed: true,
+		Quota:         true,
+		APIWaitRatio:  true,
+		CostVelocity:  true,
 	},
 }
 
@@ -292,45 +286,6 @@ func validateThresholds(t *Thresholds) {
 	t.QuotaHigh = max(0, min(t.QuotaHigh, 100))
 }
 
-// validatePriority normalizes, deduplicates, and validates priority list.
-// Returns only Line 2 metrics (max 5), lowercased and deduplicated.
-func validatePriority(input []string) []string {
-	if len(input) == 0 {
-		return nil
-	}
-
-	seen := make(map[string]bool)
-	result := make([]string, 0, 5)
-
-	for _, metric := range input {
-		// Normalize: lowercase + trim
-		normalized := strings.ToLower(strings.TrimSpace(metric))
-		if normalized == "" {
-			continue
-		}
-
-		// Skip duplicates
-		if seen[normalized] {
-			continue
-		}
-
-		// Validate: only Line 2 metrics
-		if !validLine2Metrics[normalized] {
-			continue
-		}
-
-		seen[normalized] = true
-		result = append(result, normalized)
-
-		// Max 5 items
-		if len(result) >= 5 {
-			break
-		}
-	}
-
-	return result
-}
-
 // DefaultConfig returns the default configuration with full preset enabled.
 func DefaultConfig() Config {
 	return PresetConfig("full")
@@ -391,9 +346,6 @@ func LoadConfig() Config {
 
 	// v1.1: merge features override into preset base
 	cfg.Features = mergeFeatures(base, cfg.Features)
-
-	// v1.1: validate and normalize priority
-	cfg.Priority = validatePriority(cfg.Priority)
 
 	// v1.5: merge thresholds override into defaults
 	cfg.Thresholds = mergeThresholds(DefaultThresholds(), cfg.Thresholds)

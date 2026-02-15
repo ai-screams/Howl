@@ -44,6 +44,9 @@ const (
 	// Below 1.0 = White: normal cost
 )
 
+// Time conversion constants
+const msPerMinute = 60000 // milliseconds in one minute
+
 // Usage quota thresholds (percentage remaining)
 const (
 	QuotaCritical = 10 // Red bold: almost depleted

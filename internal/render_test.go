@@ -68,7 +68,7 @@ func TestRenderModelBadge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := renderModelBadge(tt.model)
+			got := renderModelBadge(tt.model, 0)
 			if !strings.Contains(got, tt.wantColor) {
 				t.Errorf("renderModelBadge(%v) missing color %q in %q", tt.model, tt.wantColor, got)
 			}
@@ -126,7 +126,7 @@ func TestRenderCost(t *testing.T) {
 	}{
 		{"below threshold returns empty", 0.0005, true, "", ""},
 		{"zero returns empty", 0, true, "", ""},
-		{"small cost white", 0.50, false, white, "$0.50"},
+		{"small cost default", 0.50, false, Reset, "$0.50"},
 		{"medium cost yellow", 1.50, false, yellow, "$1.50"},
 		{"high cost boldRed", 5.50, false, boldRed, "$5.50"},
 		{">=10 uses one decimal", 15.0, false, boldRed, "$15.0"},
@@ -413,10 +413,10 @@ func TestRenderVimCompact(t *testing.T) {
 		mode string
 		want string
 	}{
-		{"normal", "normal", blue + "N" + Reset},
-		{"NORMAL uppercase", "NORMAL", blue + "N" + Reset},
-		{"insert", "insert", green + "I" + Reset},
-		{"visual", "visual", magenta + "V" + Reset},
+		{"normal", "normal", blue + "Normal" + Reset},
+		{"NORMAL uppercase", "NORMAL", blue + "Normal" + Reset},
+		{"insert", "insert", green + "Insert" + Reset},
+		{"visual", "visual", magenta + "Visual" + Reset},
 		{"unknown mode", "unknown", ""},
 		{"empty mode", "", ""},
 	}
@@ -488,47 +488,32 @@ func TestRenderCacheEfficiencyLabeled(t *testing.T) {
 	tests := []struct {
 		name      string
 		pct       int
+		cu        *CurrentUsage
 		wantColor string
+		wantW     bool
 	}{
-		{"excellent green", 80, green},
-		{"good yellow", 50, yellow},
-		{"poor red", 49, red},
+		{"excellent green", 80, nil, green, false},
+		{"good yellow", 50, nil, yellow, false},
+		{"poor red", 49, nil, red, false},
+		{"with token breakdown", 90, &CurrentUsage{
+			CacheCreationInputTokens: 3000,
+			CacheReadInputTokens:     120000,
+		}, green, true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := renderCacheEfficiencyLabeled(tt.pct, DefaultThresholds())
+			got := renderCacheEfficiencyLabeled(tt.pct, DefaultThresholds(), tt.cu)
 			if !strings.Contains(got, tt.wantColor) {
 				t.Errorf("renderCacheEfficiencyLabeled(%d) missing color in %q", tt.pct, got)
 			}
 			if !strings.Contains(got, "Cache:") {
 				t.Errorf("renderCacheEfficiencyLabeled(%d) missing 'Cache:' label in %q", tt.pct, got)
 			}
-		})
-	}
-}
-
-func TestRenderAPIRatioCompact(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		pct       int
-		wantColor string
-	}{
-		{"high >=60 red", 60, red},
-		{"medium >=35 yellow", 35, yellow},
-		{"low <35 green", 34, green},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := renderAPIRatioCompact(tt.pct, DefaultThresholds())
-			if !strings.Contains(got, tt.wantColor) {
-				t.Errorf("renderAPIRatioCompact(%d) missing color %q in %q", tt.pct, tt.wantColor, got)
-			}
-			if !strings.Contains(got, "A") {
-				t.Errorf("renderAPIRatioCompact(%d) missing 'A' prefix in %q", tt.pct, got)
+			if tt.wantW {
+				if !strings.Contains(got, "W:") || !strings.Contains(got, "R:") {
+					t.Errorf("renderCacheEfficiencyLabeled(%d) missing W:/R: breakdown in %q", tt.pct, got)
+				}
 			}
 		})
 	}
@@ -613,59 +598,124 @@ func TestRenderCostVelocityLabeled(t *testing.T) {
 	}
 }
 
-func TestRenderTokenBreakdown(t *testing.T) {
-	t.Parallel()
-
-	cu := &CurrentUsage{
-		InputTokens:          30000,
-		OutputTokens:         3000,
-		CacheReadInputTokens: 135000,
-	}
-	got := renderTokenBreakdown(cu)
-	if !strings.Contains(got, "In:30K") {
-		t.Errorf("renderTokenBreakdown() missing In:30K in %q", got)
-	}
-	if !strings.Contains(got, "Out:3K") {
-		t.Errorf("renderTokenBreakdown() missing Out:3K in %q", got)
-	}
-	if !strings.Contains(got, "Cache:135K") {
-		t.Errorf("renderTokenBreakdown() missing Cache:135K in %q", got)
-	}
-}
-
 func TestRenderTools(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name      string
 		tools     map[string]int
+		maxWidth  int
 		wantEmpty bool
 		wantParts []string
+		wantPlus  bool // expect "+N" overflow indicator
 	}{
-		{"nil map", nil, true, nil},
-		{"empty map", map[string]int{}, true, nil},
-		{"single tool", map[string]int{"Read": 5}, false, []string{"Read", "(5)"}},
+		{"nil map", nil, 80, true, nil, false},
+		{"empty map", map[string]int{}, 80, true, nil, false},
+		{"single tool", map[string]int{"Read": 5}, 80, false, []string{"Read", "(5)"}, false},
 		{
 			"more than 5 tools keeps top 5",
 			map[string]int{"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7},
+			80,
 			false,
 			[]string{"G", "(7)", "F", "(6)"},
+			false,
+		},
+		{
+			"long name truncated",
+			map[string]int{"search_for_pattern": 5},
+			80,
+			false,
+			[]string{"search_for_…", "(5)"},
+			false,
+		},
+		{
+			"budget overflow shows +N",
+			map[string]int{"Read": 10, "Edit": 8, "Bash": 5, "Write": 3, "Grep": 2},
+			30,
+			false,
+			[]string{"Read", "(10)"},
+			true,
+		},
+		{
+			"first tool always shown even if exceeds budget",
+			map[string]int{"find_symbol": 12},
+			5,
+			false,
+			[]string{"find_symbol", "(12)"},
+			false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := renderTools(tt.tools)
+			got := renderTools(tt.tools, tt.maxWidth)
 			if tt.wantEmpty {
 				if got != "" {
-					t.Errorf("renderTools(%v) = %q, want empty", tt.tools, got)
+					t.Errorf("renderTools(%v, %d) = %q, want empty", tt.tools, tt.maxWidth, got)
 				}
 				return
 			}
 			for _, part := range tt.wantParts {
 				if !strings.Contains(got, part) {
-					t.Errorf("renderTools(%v) missing %q in %q", tt.tools, part, got)
+					t.Errorf("renderTools(%v, %d) missing %q in %q", tt.tools, tt.maxWidth, part, got)
 				}
+			}
+			if tt.wantPlus && !strings.Contains(got, "+") {
+				t.Errorf("renderTools(%v, %d) expected +N overflow indicator in %q", tt.tools, tt.maxWidth, got)
+			}
+		})
+	}
+}
+
+func TestVisibleLen(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  int
+	}{
+		{"plain text", "hello", 5},
+		{"with ANSI color", blue + "hello" + Reset, 5},
+		{"multiple ANSI", blue + "a" + Reset + " " + yellow + "b" + Reset, 3},
+		{"empty string", "", 0},
+		{"ANSI only", blue + Reset, 0},
+		{"with parentheses", blue + "Read" + Reset + "(5)", 7},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := visibleLen(tt.input)
+			if got != tt.want {
+				t.Errorf("visibleLen(%q) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTruncateToolName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		input  string
+		maxLen int
+		want   string
+	}{
+		{"short name unchanged", "Read", 12, "Read"},
+		{"exact length unchanged", "find_symbol_", 12, "find_symbol_"},
+		{"long name truncated", "search_for_pattern", 12, "search_for_…"},
+		{"resolve-library-id", "resolve-library-id", 12, "resolve-lib…"},
+		{"maxLen 5", "long_name", 5, "long…"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := truncateToolName(tt.input, tt.maxLen)
+			if got != tt.want {
+				t.Errorf("truncateToolName(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.want)
 			}
 		})
 	}
@@ -747,7 +797,7 @@ func TestRender(t *testing.T) {
 		m := Metrics{ContextPercent: 50}
 		// Provide data so full preset shows multiple lines
 		git := &GitInfo{Branch: "main"}
-		lines := Render(d, m, git, nil, nil, nil, DefaultConfig())
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Config: DefaultConfig()})
 		if len(lines) < 2 {
 			t.Fatalf("Render() returned %d lines, want >= 2", len(lines))
 		}
@@ -763,7 +813,7 @@ func TestRender(t *testing.T) {
 			Cost:          Cost{TotalDurationMS: 300000, TotalCostUSD: 15.0},
 		}
 		m := Metrics{ContextPercent: 87}
-		lines := Render(d, m, nil, nil, nil, nil, DefaultConfig())
+		lines := Render(RenderContext{Data: d, Metrics: m, Config: DefaultConfig()})
 		if len(lines) != 2 {
 			t.Fatalf("danger mode Render() returned %d lines, want 2", len(lines))
 		}
@@ -779,7 +829,7 @@ func TestRender(t *testing.T) {
 			Cost:          Cost{TotalDurationMS: 60000},
 		}
 		m := Metrics{ContextPercent: 90}
-		lines := Render(d, m, nil, nil, nil, nil, DefaultConfig())
+		lines := Render(RenderContext{Data: d, Metrics: m, Config: DefaultConfig()})
 		// Context bar in danger mode should contain the red circle emoji
 		found := false
 		for _, line := range lines {
@@ -801,7 +851,7 @@ func TestRender(t *testing.T) {
 		}
 		m := Metrics{ContextPercent: 30}
 		git := &GitInfo{Branch: "main", Dirty: true}
-		lines := Render(d, m, git, nil, nil, nil, DefaultConfig())
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Config: DefaultConfig()})
 		found := false
 		for _, line := range lines {
 			if strings.Contains(line, "main*") {
@@ -829,10 +879,10 @@ func TestRenderWithConfig(t *testing.T) {
 
 	t.Run("full preset shows all features", func(t *testing.T) {
 		cfg := PresetConfig("full")
-		lines := Render(d, m, git, nil, nil, account, cfg)
-		// full preset with git + account should show at least 2 lines
-		if len(lines) < 2 {
-			t.Errorf("full preset should show 2+ lines, got %d", len(lines))
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Account: account, Config: cfg})
+		// full preset without usage: L1 (model+context bar+account+git+cost+duration) = 1 line
+		if len(lines) < 1 {
+			t.Errorf("full preset should show 1+ lines, got %d", len(lines))
 		}
 		// Should contain account email
 		output := strings.Join(lines, " ")
@@ -844,12 +894,12 @@ func TestRenderWithConfig(t *testing.T) {
 		}
 	})
 
-	t.Run("minimal preset shows only line 1", func(t *testing.T) {
+	t.Run("minimal preset shows single line", func(t *testing.T) {
 		cfg := PresetConfig("minimal")
-		lines := Render(d, m, git, nil, nil, account, cfg)
-		// minimal preset should show only 1 line (no line2/3/4)
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Account: account, Config: cfg})
+		// minimal preset without usage: context bar inlined into L1, no L3/L4
 		if len(lines) != 1 {
-			t.Errorf("minimal preset should show 1 line, got %d", len(lines))
+			t.Errorf("minimal preset should show exactly 1 line, got %d", len(lines))
 		}
 		// Should NOT contain account or git
 		output := strings.Join(lines, " ")
@@ -859,14 +909,18 @@ func TestRenderWithConfig(t *testing.T) {
 		if strings.Contains(output, "main") {
 			t.Error("minimal preset should not show git branch")
 		}
+		// Should contain context bar (inlined)
+		if !strings.Contains(output, "30%") {
+			t.Error("minimal preset should show context percent inline")
+		}
 	})
 
 	t.Run("developer preset shows account and git", func(t *testing.T) {
 		cfg := PresetConfig("developer")
-		lines := Render(d, m, git, nil, nil, account, cfg)
-		// developer preset should show 2 lines (line1 + line2)
-		if len(lines) < 2 {
-			t.Errorf("developer preset should show 2+ lines, got %d", len(lines))
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Account: account, Config: cfg})
+		// developer without usage: L1 has context bar inlined
+		if len(lines) < 1 {
+			t.Errorf("developer preset should show 1+ lines, got %d", len(lines))
 		}
 		output := strings.Join(lines, " ")
 		if !strings.Contains(output, "user@example.com") {
@@ -880,15 +934,15 @@ func TestRenderWithConfig(t *testing.T) {
 	t.Run("cost-focused preset shows quota metrics", func(t *testing.T) {
 		cfg := PresetConfig("cost-focused")
 		usage := &UsageData{RemainingPercent5h: 80.0, RemainingPercent7d: 90.0}
-		lines := Render(d, m, nil, usage, nil, account, cfg)
-		// cost-focused should show quota on line2
+		lines := Render(RenderContext{Data: d, Metrics: m, Usage: usage, Account: account, Config: cfg})
+		// cost-focused with usage: L1 (model+context size+cost+dur) + L2 (3 bars) = 2+ lines
 		if len(lines) < 2 {
 			t.Errorf("cost-focused preset should show 2+ lines, got %d", len(lines))
 		}
-		// Should NOT contain account or git
+		// Should contain account (now enabled) but NOT git
 		output := strings.Join(lines, " ")
-		if strings.Contains(output, "user@example.com") {
-			t.Error("cost-focused preset should not show account")
+		if !strings.Contains(output, "user@example.com") {
+			t.Error("cost-focused preset should show account")
 		}
 	})
 }
@@ -907,7 +961,7 @@ func TestRenderDangerModeIgnoresConfig(t *testing.T) {
 
 	t.Run("minimal preset ignored in danger mode", func(t *testing.T) {
 		cfg := PresetConfig("minimal")
-		lines := Render(d, m, git, nil, nil, account, cfg)
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Account: account, Config: cfg})
 		// Danger mode always shows 2 lines, ignoring preset
 		if len(lines) != 2 {
 			t.Errorf("danger mode should show 2 lines regardless of preset, got %d", len(lines))
@@ -986,173 +1040,6 @@ func TestRenderContextBar(t *testing.T) {
 	}
 }
 
-func TestBuildLine2WithPriority(t *testing.T) {
-	t.Parallel()
-
-	speed := 100
-	account := &AccountInfo{EmailAddress: "test@example.com"}
-	git := &GitInfo{Branch: "main", Dirty: false}
-	usage := &UsageData{RemainingPercent5h: 50.0}
-	d := &StdinData{
-		Cost: Cost{TotalLinesAdded: 10, TotalLinesRemoved: 5},
-	}
-	m := Metrics{ResponseSpeed: &speed}
-
-	tests := []struct {
-		name           string
-		priority       []string
-		features       FeatureToggles
-		wantOrder      []string // Expected metric order (substring checks)
-		wantLen        int
-		skipOrderCheck bool
-	}{
-		{
-			name:     "priority empty - default order",
-			priority: []string{},
-			features: FeatureToggles{
-				Account:       true,
-				Git:           true,
-				LineChanges:   true,
-				ResponseSpeed: true,
-				Quota:         true,
-			},
-			// Default: account → git → line_changes → response_speed → quota
-			wantOrder: []string{"test@example.com", "main", "+10", "100tok/s", "50%"},
-			wantLen:   5,
-		},
-		{
-			name:     "priority: quota first",
-			priority: []string{"quota", "git"},
-			features: FeatureToggles{
-				Account:       true,
-				Git:           true,
-				LineChanges:   true,
-				ResponseSpeed: true,
-				Quota:         true,
-			},
-			// Priority: quota → git, then default: account → line_changes → response_speed
-			wantOrder: []string{"50%", "main", "test@example.com", "+10", "100tok/s"},
-			wantLen:   5,
-		},
-		{
-			name:     "priority with disabled feature",
-			priority: []string{"response_speed", "account"},
-			features: FeatureToggles{
-				Account:       true,
-				Git:           true,
-				ResponseSpeed: false, // disabled
-			},
-			// Priority: account (response_speed skipped), default: git
-			wantOrder: []string{"test@example.com", "main"},
-			wantLen:   2,
-		},
-		{
-			name:     "priority full reverse",
-			priority: []string{"quota", "response_speed", "line_changes", "git", "account"},
-			features: FeatureToggles{
-				Account:       true,
-				Git:           true,
-				LineChanges:   true,
-				ResponseSpeed: true,
-				Quota:         true,
-			},
-			wantOrder: []string{"50%", "100tok/s", "+10", "main", "test@example.com"},
-			wantLen:   5,
-		},
-		{
-			name:     "all features disabled",
-			priority: []string{"quota", "git"},
-			features: FeatureToggles{}, // all false
-			wantLen:  0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := Config{
-				Priority: tt.priority,
-				Features: tt.features,
-			}
-
-			got := buildLine2WithPriority(d, m, cfg, git, account, usage)
-
-			// Check length
-			if len(got) != tt.wantLen {
-				t.Errorf("buildLine2WithPriority() len = %d, want %d\nGot: %v", len(got), tt.wantLen, got)
-			}
-
-			// Check order (if not skipped)
-			if !tt.skipOrderCheck && len(tt.wantOrder) > 0 {
-				joined := joinParts(got)
-				lastIdx := -1
-				for i, substr := range tt.wantOrder {
-					idx := strings.Index(joined, substr)
-					if idx == -1 {
-						t.Errorf("buildLine2WithPriority() missing substring %q in output %q", substr, joined)
-					}
-					if idx < lastIdx {
-						t.Errorf("buildLine2WithPriority() order violation: %q at idx %d should come after prev at %d\nOutput: %q", substr, idx, lastIdx, joined)
-					}
-					lastIdx = idx
-					_ = i // unused
-				}
-			}
-		})
-	}
-}
-
-func TestBuildLine2WithPriority_NoDuplicates(t *testing.T) {
-	t.Parallel()
-
-	speed := 100
-	account := &AccountInfo{EmailAddress: "test@example.com"}
-	git := &GitInfo{Branch: "main"}
-	d := &StdinData{}
-	m := Metrics{ResponseSpeed: &speed}
-
-	cfg := Config{
-		Priority: []string{"git", "account"}, // Priority: git first
-		Features: FeatureToggles{
-			Account: true,
-			Git:     true,
-		},
-	}
-
-	got := buildLine2WithPriority(d, m, cfg, git, account, nil)
-
-	// Should have exactly 2 items (no duplicates)
-	if len(got) != 2 {
-		t.Errorf("buildLine2WithPriority() len = %d, want 2 (no duplicates)", len(got))
-	}
-
-	// Check git comes before account
-	joined := joinParts(got)
-	gitIdx := strings.Index(joined, "main")
-	accountIdx := strings.Index(joined, "test@example.com")
-
-	if gitIdx == -1 || accountIdx == -1 {
-		t.Errorf("buildLine2WithPriority() missing git or account in %q", joined)
-	}
-	if gitIdx > accountIdx {
-		t.Errorf("buildLine2WithPriority() git should come before account, got: %q", joined)
-	}
-}
-
-func TestBuildLine2WithPriority_EmptyPriority(t *testing.T) {
-	t.Parallel()
-
-	cfg := Config{
-		Priority: []string{}, // Empty priority
-		Features: FeatureToggles{},
-	}
-
-	got := buildLine2WithPriority(&StdinData{}, Metrics{}, cfg, nil, nil, nil)
-
-	if len(got) != 0 {
-		t.Errorf("buildLine2WithPriority() with no features enabled should return empty, got %d items", len(got))
-	}
-}
-
 // ====== New Tests for Coverage Gaps ======
 
 // renderNormalMode coverage improvements
@@ -1173,7 +1060,7 @@ func TestRenderNormalMode_WithTools(t *testing.T) {
 		Features: FeatureToggles{Tools: true},
 	}
 
-	lines := renderNormalMode(d, m, nil, nil, tools, nil, cfg)
+	lines := renderNormalMode(RenderContext{Data: d, Metrics: m, Tools: tools, Config: cfg})
 
 	// Should have at least 3 lines (line1 + line2 empty or not + line3 with tools)
 	if len(lines) < 2 {
@@ -1206,7 +1093,7 @@ func TestRenderNormalMode_WithAgents(t *testing.T) {
 		Features: FeatureToggles{Agents: true},
 	}
 
-	lines := renderNormalMode(d, m, nil, nil, tools, nil, cfg)
+	lines := renderNormalMode(RenderContext{Data: d, Metrics: m, Tools: tools, Config: cfg})
 
 	// Should have at least 2 lines (line1 + line3 with agents)
 	if len(lines) < 2 {
@@ -1248,7 +1135,7 @@ func TestRenderNormalMode_Line4Metrics(t *testing.T) {
 		},
 	}
 
-	lines := renderNormalMode(d, m, nil, nil, nil, nil, cfg)
+	lines := renderNormalMode(RenderContext{Data: d, Metrics: m, Config: cfg})
 
 	// Should have at least 2 lines (line1 + line4)
 	if len(lines) < 2 {
@@ -1288,7 +1175,7 @@ func TestRenderNormalMode_VimAndAgent(t *testing.T) {
 		},
 	}
 
-	lines := renderNormalMode(d, m, nil, nil, nil, nil, cfg)
+	lines := renderNormalMode(RenderContext{Data: d, Metrics: m, Config: cfg})
 
 	// Should have at least 2 lines (line1 + line4)
 	if len(lines) < 2 {
@@ -1338,7 +1225,7 @@ func TestRenderNormalMode_AllLinesPresent(t *testing.T) {
 
 	cfg := DefaultConfig() // All features enabled
 
-	lines := renderNormalMode(d, m, git, usage, tools, account, cfg)
+	lines := renderNormalMode(RenderContext{Data: d, Metrics: m, Git: git, Usage: usage, Tools: tools, Account: account, Config: cfg})
 
 	// With all features enabled, should have 4 lines
 	if len(lines) != 4 {
@@ -1367,7 +1254,6 @@ func TestRenderDangerMode_Full(t *testing.T) {
 	t.Parallel()
 
 	cache := 70
-	apiRatio := 45
 	costPerMin := 0.25
 	speed := 80
 
@@ -1383,62 +1269,70 @@ func TestRenderDangerMode_Full(t *testing.T) {
 		},
 		Cost:      Cost{TotalDurationMS: 300000, TotalCostUSD: 15.0, TotalLinesAdded: 200, TotalLinesRemoved: 50},
 		Workspace: Workspace{ProjectDir: "/home/user/project"},
-		Vim:       &Vim{Mode: "normal"},
-		Agent:     &Agent{Name: "coder"},
 	}
 	m := Metrics{
 		ContextPercent:  90,
 		CacheEfficiency: &cache,
-		APIWaitRatio:    &apiRatio,
 		CostPerMinute:   &costPerMin,
 		ResponseSpeed:   &speed,
 	}
 	git := &GitInfo{Branch: "feature", Dirty: true}
 	usage := &UsageData{RemainingPercent5h: 40.0, RemainingPercent7d: 70.0}
 
-	lines := renderDangerMode(d, m, git, usage, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Git: git, Usage: usage, Config: Config{Thresholds: DefaultThresholds()}})
 
 	// Danger mode always returns exactly 2 lines
 	if len(lines) != 2 {
 		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
 	}
 
-	output := strings.Join(lines, " ")
+	// L1: model | 🔴 context bar (remaining+ETA) | 5h quota bar | 7d quota bar
+	line1 := lines[0]
+	if !strings.Contains(line1, "Opus 4") {
+		t.Errorf("L1 missing model badge: %q", line1)
+	}
+	if !strings.Contains(line1, "🔴") {
+		t.Errorf("L1 missing danger context indicator: %q", line1)
+	}
+	if !strings.Contains(line1, "90%") {
+		t.Errorf("L1 missing context percent: %q", line1)
+	}
+	if !strings.Contains(line1, "left") {
+		t.Errorf("L1 missing remaining tokens: %q", line1)
+	}
+	if !strings.Contains(line1, "40%") {
+		t.Errorf("L1 missing 5h quota: %q", line1)
+	}
+	if !strings.Contains(line1, "70%") {
+		t.Errorf("L1 missing 7d quota: %q", line1)
+	}
 
-	// Verify all parts are present in line2
-	if !strings.Contains(output, "project/") {
-		t.Errorf("renderDangerMode missing workspace in output: %q", output)
+	// L2: workspace/git | Δchanges | In:XK Out:XK | C:X% | speed | $cost $cost/h | duration
+	line2 := lines[1]
+	if !strings.Contains(line2, "project/") {
+		t.Errorf("L2 missing workspace: %q", line2)
 	}
-	if !strings.Contains(output, "feature*") {
-		t.Errorf("renderDangerMode missing git branch in output: %q", output)
+	if !strings.Contains(line2, "feature*") {
+		t.Errorf("L2 missing git branch: %q", line2)
 	}
-	if !strings.Contains(output, "+200") {
-		t.Errorf("renderDangerMode missing line changes in output: %q", output)
+	if !strings.Contains(line2, "+200") {
+		t.Errorf("L2 missing line changes: %q", line2)
 	}
-	if !strings.Contains(output, "In:50K") {
-		t.Errorf("renderDangerMode missing token breakdown in output: %q", output)
+	if !strings.Contains(line2, "In:50K") {
+		t.Errorf("L2 missing token IO: %q", line2)
 	}
-	if !strings.Contains(output, "80tok/s") {
-		t.Errorf("renderDangerMode missing speed in output: %q", output)
+	if !strings.Contains(line2, "C70%") {
+		t.Errorf("L2 missing cache efficiency: %q", line2)
 	}
-	if !strings.Contains(output, "C70%") {
-		t.Errorf("renderDangerMode missing cache efficiency in output: %q", output)
-	}
-	if !strings.Contains(output, "A45%") {
-		t.Errorf("renderDangerMode missing API ratio in output: %q", output)
+	if !strings.Contains(line2, "80tok/s") {
+		t.Errorf("L2 missing speed: %q", line2)
 	}
 	// Cost per hour (0.25 * 60 = 15.0/h)
-	if !strings.Contains(output, "15.0/h") {
-		t.Errorf("renderDangerMode missing cost/hour in output: %q", output)
+	if !strings.Contains(line2, "15.0/h") {
+		t.Errorf("L2 missing cost/hour: %q", line2)
 	}
-	if !strings.Contains(output, "N") {
-		t.Errorf("renderDangerMode missing vim mode in output: %q", output)
-	}
-	if !strings.Contains(output, "@coder") {
-		t.Errorf("renderDangerMode missing agent name in output: %q", output)
-	}
-	if !strings.Contains(output, "40%") {
-		t.Errorf("renderDangerMode missing quota in output: %q", output)
+	if !strings.Contains(line2, "5m") {
+		t.Errorf("L2 missing duration: %q", line2)
 	}
 }
 
@@ -1454,7 +1348,7 @@ func TestRenderDangerMode_WithWorkspaceAndGit(t *testing.T) {
 	m := Metrics{ContextPercent: 85}
 	git := &GitInfo{Branch: "main"}
 
-	lines := renderDangerMode(d, m, git, nil, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Git: git, Config: Config{Thresholds: DefaultThresholds()}})
 
 	if len(lines) != 2 {
 		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
@@ -1480,7 +1374,7 @@ func TestRenderDangerMode_WithWorkspaceNoGit(t *testing.T) {
 	}
 	m := Metrics{ContextPercent: 90}
 
-	lines := renderDangerMode(d, m, nil, nil, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Config: Config{Thresholds: DefaultThresholds()}})
 
 	if len(lines) != 2 {
 		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
@@ -1503,18 +1397,18 @@ func TestRenderDangerMode_WithQuota(t *testing.T) {
 	m := Metrics{ContextPercent: 92}
 	usage := &UsageData{RemainingPercent5h: 15.0, RemainingPercent7d: 80.0}
 
-	lines := renderDangerMode(d, m, nil, usage, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Usage: usage, Config: Config{Thresholds: DefaultThresholds()}})
 
 	if len(lines) != 2 {
 		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
 	}
 
-	// Check line2 contains quota
-	if !strings.Contains(lines[1], "15%") {
-		t.Errorf("renderDangerMode missing 5h quota in line2: %q", lines[1])
+	// Quota bars are now on line1
+	if !strings.Contains(lines[0], "15%") {
+		t.Errorf("renderDangerMode missing 5h quota in line1: %q", lines[0])
 	}
-	if !strings.Contains(lines[1], "80%") {
-		t.Errorf("renderDangerMode missing 7d quota in line2: %q", lines[1])
+	if !strings.Contains(lines[0], "80%") {
+		t.Errorf("renderDangerMode missing 7d quota in line1: %q", lines[0])
 	}
 }
 
@@ -1525,23 +1419,30 @@ func TestRenderDangerMode_WithVimAndAgent(t *testing.T) {
 		Model:         Model{DisplayName: "Sonnet"},
 		ContextWindow: ContextWindow{ContextWindowSize: 200000},
 		Cost:          Cost{TotalDurationMS: 60000},
-		Vim:           &Vim{Mode: "visual"},
-		Agent:         &Agent{Name: "tester"},
 	}
 	m := Metrics{ContextPercent: 88}
 
-	lines := renderDangerMode(d, m, nil, nil, nil, DefaultThresholds())
+	// In new danger layout, vim/agent are not shown — compact 2-line layout
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Config: Config{Thresholds: DefaultThresholds()}})
 
 	if len(lines) != 2 {
 		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
 	}
 
-	// Check line2 contains vim mode and agent
-	if !strings.Contains(lines[1], "V") {
-		t.Errorf("renderDangerMode missing vim visual mode 'V' in line2: %q", lines[1])
+	// L1 should have danger context bar with ETA
+	if !strings.Contains(lines[0], "🔴") {
+		t.Errorf("L1 missing danger indicator: %q", lines[0])
 	}
-	if !strings.Contains(lines[1], "@tester") {
-		t.Errorf("renderDangerMode missing agent '@tester' in line2: %q", lines[1])
+	if !strings.Contains(lines[0], "88%") {
+		t.Errorf("L1 missing context percent: %q", lines[0])
+	}
+	if !strings.Contains(lines[0], "left") {
+		t.Errorf("L1 missing remaining tokens info: %q", lines[0])
+	}
+
+	// L2 should have duration
+	if !strings.Contains(lines[1], "1m") {
+		t.Errorf("L2 missing duration: %q", lines[1])
 	}
 }
 
@@ -1560,7 +1461,7 @@ func TestRenderDangerMode_CostPerHour(t *testing.T) {
 		CostPerMinute:  &costPerMin,
 	}
 
-	lines := renderDangerMode(d, m, nil, nil, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Config: Config{Thresholds: DefaultThresholds()}})
 
 	if len(lines) != 2 {
 		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
@@ -1583,7 +1484,7 @@ func TestRenderDangerMode_MinimalData(t *testing.T) {
 	}
 	m := Metrics{ContextPercent: 85}
 
-	lines := renderDangerMode(d, m, nil, nil, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Config: Config{Thresholds: DefaultThresholds()}})
 
 	// Should not panic and should return 2 lines
 	if len(lines) != 2 {
@@ -1693,7 +1594,6 @@ func TestRenderResponseSpeed_CustomThresholds(t *testing.T) {
 func TestRender_CustomDangerThreshold(t *testing.T) {
 	t.Parallel()
 
-	// Add sufficient data to ensure normal mode returns 4 lines (not 2)
 	cache := 80
 	apiRatio := 35
 	speed := 60
@@ -1702,12 +1602,13 @@ func TestRender_CustomDangerThreshold(t *testing.T) {
 		ContextWindow: ContextWindow{ContextWindowSize: 200000},
 		Cost:          Cost{TotalDurationMS: 120000, TotalCostUSD: 1.0, TotalLinesAdded: 50, TotalLinesRemoved: 10},
 		Workspace:     Workspace{ProjectDir: "/test"},
-		Vim:           &Vim{Mode: "normal"}, // Ensures line4 is present
+		Vim:           &Vim{Mode: "normal"},
 	}
 	git := &GitInfo{Branch: "main", Dirty: true}
 	account := &AccountInfo{EmailAddress: "test@example.com"}
-	cfg := DefaultConfig()            // All features enabled
-	cfg.Thresholds.ContextDanger = 90 // Custom danger at 90%
+	usage := &UsageData{RemainingPercent5h: 60.0, RemainingPercent7d: 80.0}
+	cfg := DefaultConfig()
+	cfg.Thresholds.ContextDanger = 90
 
 	t.Run("87% with danger=90 should be normal mode", func(t *testing.T) {
 		m := Metrics{
@@ -1716,9 +1617,9 @@ func TestRender_CustomDangerThreshold(t *testing.T) {
 			APIWaitRatio:    &apiRatio,
 			ResponseSpeed:   &speed,
 		}
-		lines := Render(d, m, git, nil, nil, account, cfg)
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Usage: usage, Account: account, Config: cfg})
 
-		// Normal mode should have more than 2 lines (danger mode always returns exactly 2)
+		// Normal mode with usage should have more than 2 lines (danger mode always returns exactly 2)
 		if len(lines) <= 2 {
 			t.Errorf("Render with 87%% and danger=90 should be normal mode (>2 lines), got %d lines", len(lines))
 		}
@@ -1732,7 +1633,7 @@ func TestRender_CustomDangerThreshold(t *testing.T) {
 
 	t.Run("90% with danger=90 should be danger mode", func(t *testing.T) {
 		m := Metrics{ContextPercent: 90}
-		lines := Render(d, m, git, nil, nil, nil, cfg)
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Config: cfg})
 
 		// Danger mode should return exactly 2 lines
 		if len(lines) != 2 {
@@ -1741,14 +1642,14 @@ func TestRender_CustomDangerThreshold(t *testing.T) {
 
 		// Should contain danger indicator
 		output := strings.Join(lines, " ")
-		if !strings.Contains(output, "🔴") {
+		if strings.Contains(output, "🔴") == false {
 			t.Error("Danger mode should contain danger indicator 🔴")
 		}
 	})
 
 	t.Run("91% with danger=90 should be danger mode", func(t *testing.T) {
 		m := Metrics{ContextPercent: 91}
-		lines := Render(d, m, git, nil, nil, nil, cfg)
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Config: cfg})
 
 		if len(lines) != 2 {
 			t.Errorf("Render with 91%% and danger=90 should be danger mode (2 lines), got %d lines", len(lines))
@@ -1771,7 +1672,7 @@ func TestRenderCost_CustomThresholds(t *testing.T) {
 		wantColor string
 	}{
 		{"$4.99 is yellow (between 3.0 and 10.0)", 4.99, yellow},
-		{"$2.99 is white (below 3.0)", 2.99, white},
+		{"$2.99 is default (below 3.0)", 2.99, Reset},
 		{"$10.0 is boldRed (at high)", 10.0, boldRed},
 		{"$15.0 is boldRed (above high)", 15.0, boldRed},
 		{"$3.0 is yellow (at medium)", 3.0, yellow},

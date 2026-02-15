@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**Howl** — a Go statusline HUD for Claude Code. Reads JSON from stdin (piped every ~300ms), computes 13 metrics, and outputs ANSI-formatted lines. Zero external dependencies (stdlib only), CGO_ENABLED=0, ~10ms cold start.
+**Howl** — a Go statusline HUD for Claude Code. Reads JSON from stdin (piped every ~300ms), computes 5 derived metrics (context%, cache efficiency, API wait ratio, cost/min, tokens/sec) with 12 feature toggles, and outputs ANSI-formatted lines. Zero external dependencies (stdlib only), CGO_ENABLED=0, ~10ms cold start.
 
 Module: `github.com/ai-screams/howl`
 
@@ -55,7 +55,7 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 
 ### Test Conventions
 
-96.1% coverage. Every source file has a `_test.go` pair plus `integration_test.go` for full pipeline tests.
+94.7% coverage. Every source file has a `_test.go` pair plus `integration_test.go` for full pipeline tests.
 
 - **git_test.go** creates real git repos in `t.TempDir()`
 - **usage_test.go** uses package-level var injection (`usageAPIURL`, `getOAuthTokenFunc`) for test substitution — no interfaces

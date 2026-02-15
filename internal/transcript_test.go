@@ -257,3 +257,32 @@ func TestParseTranscriptEdgeCases(t *testing.T) {
 		}
 	})
 }
+
+func TestShortenToolName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"MCP serena tool", "mcp__plugin_serena_serena__find_symbol", "find_symbol"},
+		{"MCP context7 tool", "mcp__plugin_context7_context7__resolve-library-id", "resolve-library-id"},
+		{"MCP sequential thinking", "mcp__sequential-thinking__sequentialthinking", "sequentialthinking"},
+		{"built-in Edit", "Edit", "Edit"},
+		{"built-in Read", "Read", "Read"},
+		{"built-in Bash", "Bash", "Bash"},
+		{"empty string", "", ""},
+		{"single underscore", "some_tool", "some_tool"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := shortenToolName(tt.input)
+			if got != tt.want {
+				t.Errorf("shortenToolName(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
