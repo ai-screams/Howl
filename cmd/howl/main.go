@@ -52,7 +52,15 @@ func main() {
 	// Get account info (optional)
 	account := internal.GetAccountInfo()
 
-	lines := internal.Render(&data, metrics, git, usage, toolInfo, account, cfg)
+	lines := internal.Render(internal.RenderContext{
+		Data:    &data,
+		Metrics: metrics,
+		Git:     git,
+		Usage:   usage,
+		Tools:   toolInfo,
+		Account: account,
+		Config:  cfg,
+	})
 
 	// Output each line individually with:
 	// 1. RESET prefix to clear ANSI state

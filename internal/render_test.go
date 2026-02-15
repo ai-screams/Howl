@@ -797,7 +797,7 @@ func TestRender(t *testing.T) {
 		m := Metrics{ContextPercent: 50}
 		// Provide data so full preset shows multiple lines
 		git := &GitInfo{Branch: "main"}
-		lines := Render(d, m, git, nil, nil, nil, DefaultConfig())
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Config: DefaultConfig()})
 		if len(lines) < 2 {
 			t.Fatalf("Render() returned %d lines, want >= 2", len(lines))
 		}
@@ -813,7 +813,7 @@ func TestRender(t *testing.T) {
 			Cost:          Cost{TotalDurationMS: 300000, TotalCostUSD: 15.0},
 		}
 		m := Metrics{ContextPercent: 87}
-		lines := Render(d, m, nil, nil, nil, nil, DefaultConfig())
+		lines := Render(RenderContext{Data: d, Metrics: m, Config: DefaultConfig()})
 		if len(lines) != 2 {
 			t.Fatalf("danger mode Render() returned %d lines, want 2", len(lines))
 		}
@@ -829,7 +829,7 @@ func TestRender(t *testing.T) {
 			Cost:          Cost{TotalDurationMS: 60000},
 		}
 		m := Metrics{ContextPercent: 90}
-		lines := Render(d, m, nil, nil, nil, nil, DefaultConfig())
+		lines := Render(RenderContext{Data: d, Metrics: m, Config: DefaultConfig()})
 		// Context bar in danger mode should contain the red circle emoji
 		found := false
 		for _, line := range lines {
@@ -851,7 +851,7 @@ func TestRender(t *testing.T) {
 		}
 		m := Metrics{ContextPercent: 30}
 		git := &GitInfo{Branch: "main", Dirty: true}
-		lines := Render(d, m, git, nil, nil, nil, DefaultConfig())
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Config: DefaultConfig()})
 		found := false
 		for _, line := range lines {
 			if strings.Contains(line, "main*") {
@@ -879,7 +879,7 @@ func TestRenderWithConfig(t *testing.T) {
 
 	t.Run("full preset shows all features", func(t *testing.T) {
 		cfg := PresetConfig("full")
-		lines := Render(d, m, git, nil, nil, account, cfg)
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Account: account, Config: cfg})
 		// full preset without usage: L1 (model+context bar+account+git+cost+duration) = 1 line
 		if len(lines) < 1 {
 			t.Errorf("full preset should show 1+ lines, got %d", len(lines))
@@ -896,7 +896,7 @@ func TestRenderWithConfig(t *testing.T) {
 
 	t.Run("minimal preset shows single line", func(t *testing.T) {
 		cfg := PresetConfig("minimal")
-		lines := Render(d, m, git, nil, nil, account, cfg)
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Account: account, Config: cfg})
 		// minimal preset without usage: context bar inlined into L1, no L3/L4
 		if len(lines) != 1 {
 			t.Errorf("minimal preset should show exactly 1 line, got %d", len(lines))
@@ -917,7 +917,7 @@ func TestRenderWithConfig(t *testing.T) {
 
 	t.Run("developer preset shows account and git", func(t *testing.T) {
 		cfg := PresetConfig("developer")
-		lines := Render(d, m, git, nil, nil, account, cfg)
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Account: account, Config: cfg})
 		// developer without usage: L1 has context bar inlined
 		if len(lines) < 1 {
 			t.Errorf("developer preset should show 1+ lines, got %d", len(lines))
@@ -934,7 +934,7 @@ func TestRenderWithConfig(t *testing.T) {
 	t.Run("cost-focused preset shows quota metrics", func(t *testing.T) {
 		cfg := PresetConfig("cost-focused")
 		usage := &UsageData{RemainingPercent5h: 80.0, RemainingPercent7d: 90.0}
-		lines := Render(d, m, nil, usage, nil, account, cfg)
+		lines := Render(RenderContext{Data: d, Metrics: m, Usage: usage, Account: account, Config: cfg})
 		// cost-focused with usage: L1 (model+context size+cost+dur) + L2 (3 bars) = 2+ lines
 		if len(lines) < 2 {
 			t.Errorf("cost-focused preset should show 2+ lines, got %d", len(lines))
@@ -961,7 +961,7 @@ func TestRenderDangerModeIgnoresConfig(t *testing.T) {
 
 	t.Run("minimal preset ignored in danger mode", func(t *testing.T) {
 		cfg := PresetConfig("minimal")
-		lines := Render(d, m, git, nil, nil, account, cfg)
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Account: account, Config: cfg})
 		// Danger mode always shows 2 lines, ignoring preset
 		if len(lines) != 2 {
 			t.Errorf("danger mode should show 2 lines regardless of preset, got %d", len(lines))
@@ -1060,7 +1060,7 @@ func TestRenderNormalMode_WithTools(t *testing.T) {
 		Features: FeatureToggles{Tools: true},
 	}
 
-	lines := renderNormalMode(d, m, nil, nil, tools, nil, cfg)
+	lines := renderNormalMode(RenderContext{Data: d, Metrics: m, Tools: tools, Config: cfg})
 
 	// Should have at least 3 lines (line1 + line2 empty or not + line3 with tools)
 	if len(lines) < 2 {
@@ -1093,7 +1093,7 @@ func TestRenderNormalMode_WithAgents(t *testing.T) {
 		Features: FeatureToggles{Agents: true},
 	}
 
-	lines := renderNormalMode(d, m, nil, nil, tools, nil, cfg)
+	lines := renderNormalMode(RenderContext{Data: d, Metrics: m, Tools: tools, Config: cfg})
 
 	// Should have at least 2 lines (line1 + line3 with agents)
 	if len(lines) < 2 {
@@ -1135,7 +1135,7 @@ func TestRenderNormalMode_Line4Metrics(t *testing.T) {
 		},
 	}
 
-	lines := renderNormalMode(d, m, nil, nil, nil, nil, cfg)
+	lines := renderNormalMode(RenderContext{Data: d, Metrics: m, Config: cfg})
 
 	// Should have at least 2 lines (line1 + line4)
 	if len(lines) < 2 {
@@ -1175,7 +1175,7 @@ func TestRenderNormalMode_VimAndAgent(t *testing.T) {
 		},
 	}
 
-	lines := renderNormalMode(d, m, nil, nil, nil, nil, cfg)
+	lines := renderNormalMode(RenderContext{Data: d, Metrics: m, Config: cfg})
 
 	// Should have at least 2 lines (line1 + line4)
 	if len(lines) < 2 {
@@ -1225,7 +1225,7 @@ func TestRenderNormalMode_AllLinesPresent(t *testing.T) {
 
 	cfg := DefaultConfig() // All features enabled
 
-	lines := renderNormalMode(d, m, git, usage, tools, account, cfg)
+	lines := renderNormalMode(RenderContext{Data: d, Metrics: m, Git: git, Usage: usage, Tools: tools, Account: account, Config: cfg})
 
 	// With all features enabled, should have 4 lines
 	if len(lines) != 4 {
@@ -1279,7 +1279,7 @@ func TestRenderDangerMode_Full(t *testing.T) {
 	git := &GitInfo{Branch: "feature", Dirty: true}
 	usage := &UsageData{RemainingPercent5h: 40.0, RemainingPercent7d: 70.0}
 
-	lines := renderDangerMode(d, m, git, usage, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Git: git, Usage: usage, Config: Config{Thresholds: DefaultThresholds()}})
 
 	// Danger mode always returns exactly 2 lines
 	if len(lines) != 2 {
@@ -1348,7 +1348,7 @@ func TestRenderDangerMode_WithWorkspaceAndGit(t *testing.T) {
 	m := Metrics{ContextPercent: 85}
 	git := &GitInfo{Branch: "main"}
 
-	lines := renderDangerMode(d, m, git, nil, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Git: git, Config: Config{Thresholds: DefaultThresholds()}})
 
 	if len(lines) != 2 {
 		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
@@ -1374,7 +1374,7 @@ func TestRenderDangerMode_WithWorkspaceNoGit(t *testing.T) {
 	}
 	m := Metrics{ContextPercent: 90}
 
-	lines := renderDangerMode(d, m, nil, nil, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Config: Config{Thresholds: DefaultThresholds()}})
 
 	if len(lines) != 2 {
 		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
@@ -1397,7 +1397,7 @@ func TestRenderDangerMode_WithQuota(t *testing.T) {
 	m := Metrics{ContextPercent: 92}
 	usage := &UsageData{RemainingPercent5h: 15.0, RemainingPercent7d: 80.0}
 
-	lines := renderDangerMode(d, m, nil, usage, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Usage: usage, Config: Config{Thresholds: DefaultThresholds()}})
 
 	if len(lines) != 2 {
 		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
@@ -1423,7 +1423,7 @@ func TestRenderDangerMode_WithVimAndAgent(t *testing.T) {
 	m := Metrics{ContextPercent: 88}
 
 	// In new danger layout, vim/agent are not shown — compact 2-line layout
-	lines := renderDangerMode(d, m, nil, nil, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Config: Config{Thresholds: DefaultThresholds()}})
 
 	if len(lines) != 2 {
 		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
@@ -1461,7 +1461,7 @@ func TestRenderDangerMode_CostPerHour(t *testing.T) {
 		CostPerMinute:  &costPerMin,
 	}
 
-	lines := renderDangerMode(d, m, nil, nil, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Config: Config{Thresholds: DefaultThresholds()}})
 
 	if len(lines) != 2 {
 		t.Fatalf("renderDangerMode should return 2 lines, got %d", len(lines))
@@ -1484,7 +1484,7 @@ func TestRenderDangerMode_MinimalData(t *testing.T) {
 	}
 	m := Metrics{ContextPercent: 85}
 
-	lines := renderDangerMode(d, m, nil, nil, nil, DefaultThresholds())
+	lines := renderDangerMode(RenderContext{Data: d, Metrics: m, Config: Config{Thresholds: DefaultThresholds()}})
 
 	// Should not panic and should return 2 lines
 	if len(lines) != 2 {
@@ -1617,7 +1617,7 @@ func TestRender_CustomDangerThreshold(t *testing.T) {
 			APIWaitRatio:    &apiRatio,
 			ResponseSpeed:   &speed,
 		}
-		lines := Render(d, m, git, usage, nil, account, cfg)
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Usage: usage, Account: account, Config: cfg})
 
 		// Normal mode with usage should have more than 2 lines (danger mode always returns exactly 2)
 		if len(lines) <= 2 {
@@ -1633,7 +1633,7 @@ func TestRender_CustomDangerThreshold(t *testing.T) {
 
 	t.Run("90% with danger=90 should be danger mode", func(t *testing.T) {
 		m := Metrics{ContextPercent: 90}
-		lines := Render(d, m, git, nil, nil, nil, cfg)
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Config: cfg})
 
 		// Danger mode should return exactly 2 lines
 		if len(lines) != 2 {
@@ -1649,7 +1649,7 @@ func TestRender_CustomDangerThreshold(t *testing.T) {
 
 	t.Run("91% with danger=90 should be danger mode", func(t *testing.T) {
 		m := Metrics{ContextPercent: 91}
-		lines := Render(d, m, git, nil, nil, nil, cfg)
+		lines := Render(RenderContext{Data: d, Metrics: m, Git: git, Config: cfg})
 
 		if len(lines) != 2 {
 			t.Errorf("Render with 91%% and danger=90 should be danger mode (2 lines), got %d lines", len(lines))

@@ -7,14 +7,12 @@ import "strings"
 type StdinData struct {
 	SessionID      string        `json:"session_id"`
 	TranscriptPath string        `json:"transcript_path"`
-	HookEventName  string        `json:"hook_event_name"`
 	CWD            string        `json:"cwd"`
 	Version        string        `json:"version"`
 	Model          Model         `json:"model"`
 	Workspace      Workspace     `json:"workspace"`
 	Cost           Cost          `json:"cost"`
 	ContextWindow  ContextWindow `json:"context_window"`
-	OutputStyle    *OutputStyle  `json:"output_style"`
 	Vim            *Vim          `json:"vim"`
 	Agent          *Agent        `json:"agent"`
 }
@@ -58,11 +56,6 @@ type CurrentUsage struct {
 	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 }
 
-// OutputStyle represents the output formatting mode for Claude Code.
-type OutputStyle struct {
-	Name string `json:"name"`
-}
-
 // Vim represents the current vim mode if enabled in Claude Code.
 type Vim struct {
 	Mode string `json:"mode"`
@@ -71,6 +64,18 @@ type Vim struct {
 // Agent represents the active agent teammate if in team mode.
 type Agent struct {
 	Name string `json:"name"`
+}
+
+// RenderContext bundles all inputs for Render. Optional sources (Git, Usage,
+// Tools, Account) are nil-safe — Render skips them when nil.
+type RenderContext struct {
+	Data    *StdinData
+	Metrics Metrics
+	Git     *GitInfo
+	Usage   *UsageData
+	Tools   *ToolInfo
+	Account *AccountInfo
+	Config  Config
 }
 
 // ModelTier classifies a model by its performance/cost tier.

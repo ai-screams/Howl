@@ -29,17 +29,18 @@ const (
 
 // Render produces lines for the statusline display.
 // Normal mode: 2-4 lines (depending on active features). Danger mode (configurable, default 85%+): 2 dense lines.
-func Render(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, tools *ToolInfo, account *AccountInfo, cfg Config) []string {
-	if cfg.Thresholds == (Thresholds{}) {
-		cfg.Thresholds = DefaultThresholds()
+func Render(rc RenderContext) []string {
+	if rc.Config.Thresholds == (Thresholds{}) {
+		rc.Config.Thresholds = DefaultThresholds()
 	}
-	if m.ContextPercent >= cfg.Thresholds.ContextDanger {
-		return renderDangerMode(d, m, git, usage, tools, cfg.Thresholds)
+	if rc.Metrics.ContextPercent >= rc.Config.Thresholds.ContextDanger {
+		return renderDangerMode(rc)
 	}
-	return renderNormalMode(d, m, git, usage, tools, account, cfg)
+	return renderNormalMode(rc)
 }
 
-func renderNormalMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, tools *ToolInfo, account *AccountInfo, cfg Config) []string {
+func renderNormalMode(rc RenderContext) []string {
+	d, m, git, usage, tools, account, cfg := rc.Data, rc.Metrics, rc.Git, rc.Usage, rc.Tools, rc.Account, rc.Config
 	t := cfg.Thresholds
 
 	// Determine if quota bars will be shown
@@ -140,7 +141,8 @@ func renderNormalMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, t
 	return lines
 }
 
-func renderDangerMode(d *StdinData, m Metrics, git *GitInfo, usage *UsageData, _ *ToolInfo, t Thresholds) []string {
+func renderDangerMode(rc RenderContext) []string {
+	d, m, git, usage, t := rc.Data, rc.Metrics, rc.Git, rc.Usage, rc.Config.Thresholds
 	// L1: model | 🔴 danger context bar (remaining+ETA) | 5h quota bar | 7d quota bar
 	line1 := make([]string, 0, 4)
 	line1 = append(line1, renderModelBadge(d.Model, 0))

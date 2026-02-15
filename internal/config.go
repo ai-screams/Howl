@@ -52,7 +52,6 @@ type FeatureToggles struct {
 	CostVelocity    bool `json:"cost_velocity"`
 	VimMode         bool `json:"vim_mode"`
 	AgentName       bool `json:"agent_name"`
-	// TokenBreakdown bool `json:"token_breakdown"` // Reserved for danger mode only (v1.1+)
 }
 
 var presets = map[string]FeatureToggles{

@@ -395,7 +395,7 @@ func TestIntegration_NormalMode(t *testing.T) {
 			}
 
 			m := ComputeMetrics(&d)
-			lines := Render(&d, m, tt.git, tt.usage, tt.tools, tt.account, tt.cfg)
+			lines := Render(RenderContext{Data: &d, Metrics: m, Git: tt.git, Usage: tt.usage, Tools: tt.tools, Account: tt.account, Config: tt.cfg})
 
 			// Verify line count
 			if len(lines) < tt.wantMinLines {
@@ -530,7 +530,7 @@ func TestIntegration_DangerMode(t *testing.T) {
 			}
 
 			m := ComputeMetrics(&d)
-			lines := Render(&d, m, tt.git, tt.usage, tt.tools, nil, DefaultConfig())
+			lines := Render(RenderContext{Data: &d, Metrics: m, Git: tt.git, Usage: tt.usage, Tools: tt.tools, Config: DefaultConfig()})
 
 			// Danger mode always renders exactly 2 lines
 			if len(lines) != 2 {
@@ -613,7 +613,7 @@ func TestIntegration_JSONDecodingEdgeCases(t *testing.T) {
 			m := ComputeMetrics(&d)
 
 			// Should not panic
-			lines := Render(&d, m, nil, nil, nil, nil, DefaultConfig())
+			lines := Render(RenderContext{Data: &d, Metrics: m, Config: DefaultConfig()})
 
 			if len(lines) < tt.wantMinLines {
 				t.Errorf("got %d lines, want at least %d", len(lines), tt.wantMinLines)
@@ -798,7 +798,7 @@ func TestIntegration_PriorityOrdering(t *testing.T) {
 	}
 
 	m := ComputeMetrics(&d)
-	lines := Render(&d, m, git, usage, nil, account, cfg)
+	lines := Render(RenderContext{Data: &d, Metrics: m, Git: git, Usage: usage, Account: account, Config: cfg})
 
 	if len(lines) < 3 {
 		t.Fatalf("expected at least 3 lines, got %d", len(lines))
@@ -847,7 +847,7 @@ func TestIntegration_CustomThresholds(t *testing.T) {
 
 	// With default config, 85% triggers danger mode (exactly 2 lines)
 	defaultCfg := DefaultConfig()
-	dangerLines := Render(&d, m, nil, nil, nil, nil, defaultCfg)
+	dangerLines := Render(RenderContext{Data: &d, Metrics: m, Config: defaultCfg})
 	if len(dangerLines) != 2 {
 		t.Fatalf("default config at 85%% should produce danger mode (2 lines), got %d", len(dangerLines))
 	}
@@ -860,7 +860,7 @@ func TestIntegration_CustomThresholds(t *testing.T) {
 
 	git := &GitInfo{Branch: "main", Dirty: true}
 	usage := &UsageData{RemainingPercent5h: 60.0, RemainingPercent7d: 80.0}
-	normalLines := Render(&d, m, git, usage, nil, nil, customCfg)
+	normalLines := Render(RenderContext{Data: &d, Metrics: m, Git: git, Usage: usage, Config: customCfg})
 
 	if len(normalLines) <= 2 {
 		t.Errorf("custom danger=90 at 85%% should produce normal mode (>2 lines), got %d lines", len(normalLines))
