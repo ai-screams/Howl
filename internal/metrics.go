@@ -63,10 +63,10 @@ func calcAPIWaitRatio(c *Cost) *int {
 }
 
 func calcCostPerMinute(c *Cost) *float64 {
-	if c.TotalDurationMS < 60000 { // need at least 1 minute
+	if c.TotalDurationMS < msPerMinute { // need at least 1 minute
 		return nil
 	}
-	minutes := float64(c.TotalDurationMS) / 60000.0
+	minutes := float64(c.TotalDurationMS) / msPerMinute
 	v := c.TotalCostUSD / minutes
 	return &v
 }

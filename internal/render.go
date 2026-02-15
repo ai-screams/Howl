@@ -237,17 +237,7 @@ func renderModelBadge(m Model, contextSize int) string {
 func renderContextBar(percent int, cw ContextWindow, t Thresholds) string {
 	const width = 10
 	filled := min(width*percent/100, width)
-	empty := width - filled
-
-	var b strings.Builder
-	b.Grow(width)
-	for range filled {
-		b.WriteRune('█')
-	}
-	for range empty {
-		b.WriteRune('░')
-	}
-	bar := b.String()
+	bar := buildBar(filled, width)
 
 	color := contextColor(percent, t)
 	prefix := ""
@@ -273,17 +263,7 @@ func renderContextBar(percent int, cw ContextWindow, t Thresholds) string {
 func renderContextBarDanger(percent int, cw ContextWindow, durationMS int64, t Thresholds) string {
 	const width = 10
 	filled := min(width*percent/100, width)
-	empty := width - filled
-
-	var b strings.Builder
-	b.Grow(width)
-	for range filled {
-		b.WriteRune('█')
-	}
-	for range empty {
-		b.WriteRune('░')
-	}
-	bar := b.String()
+	bar := buildBar(filled, width)
 
 	color := contextColor(percent, t)
 	prefix := "🔴 "
@@ -295,7 +275,7 @@ func renderContextBarDanger(percent int, cw ContextWindow, durationMS int64, t T
 
 	// ETA: estimate minutes until context is full
 	eta := ""
-	durationMin := float64(durationMS) / 60000.0
+	durationMin := float64(durationMS) / msPerMinute
 	if percent > 0 && durationMin > 0 {
 		remainPct := float64(100 - percent)
 		etaMin := remainPct * durationMin / float64(percent)
@@ -358,7 +338,7 @@ func renderCost(usd float64, t Thresholds) string {
 }
 
 func renderDuration(ms int64) string {
-	minutes := ms / 60000
+	minutes := ms / msPerMinute
 	if minutes < 1 {
 		return grey + "<1m" + Reset
 	}
@@ -643,17 +623,7 @@ func formatTokenCount(tokens int) string {
 func renderQuotaBar(remainPct float64, resetTime time.Time, label string, t Thresholds) string {
 	const width = 10
 	filled := max(0, min(int(remainPct)*width/100, width))
-	empty := width - filled
-
-	var b strings.Builder
-	b.Grow(width)
-	for range filled {
-		b.WriteRune('█')
-	}
-	for range empty {
-		b.WriteRune('░')
-	}
-	bar := b.String()
+	bar := buildBar(filled, width)
 
 	color := quotaColor(remainPct, t)
 	now := time.Now()
@@ -711,6 +681,19 @@ func quotaColor(remaining float64, t Thresholds) string {
 	default:
 		return green
 	}
+}
+
+// buildBar creates a fixed-width progress bar with filled (█) and empty (░) characters.
+func buildBar(filled, width int) string {
+	var b strings.Builder
+	b.Grow(width)
+	for range filled {
+		b.WriteRune('█')
+	}
+	for range width - filled {
+		b.WriteRune('░')
+	}
+	return b.String()
 }
 
 func joinParts(parts []string) string {

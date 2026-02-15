@@ -113,7 +113,7 @@ func GetUsage(sessionID string) *UsageData {
 }
 
 func getOAuthToken() string {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), apiTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "/usr/bin/security", "find-generic-password",
 		"-s", "Claude Code-credentials",
