@@ -24,11 +24,9 @@ func ComputeMetrics(d *StdinData) Metrics {
 
 func calcContextPercent(d *StdinData) int {
 	if d.ContextWindow.UsedPercentage != nil {
-		p := int(*d.ContextWindow.UsedPercentage)
-		if p > 100 {
-			return 100
-		}
-		return p
+		// Clamp both ends. A negative value would reach buildBar as a bar wider
+		// than its own width and make it write without bound.
+		return min(max(int(*d.ContextWindow.UsedPercentage), 0), 100)
 	}
 	// Fallback: compute from current_usage tokens
 	cu := d.ContextWindow.CurrentUsage
@@ -36,11 +34,7 @@ func calcContextPercent(d *StdinData) int {
 		return 0
 	}
 	total := cu.InputTokens + cu.CacheCreationInputTokens + cu.CacheReadInputTokens
-	p := total * 100 / d.ContextWindow.ContextWindowSize
-	if p > 100 {
-		return 100
-	}
-	return p
+	return min(max(total*100/d.ContextWindow.ContextWindowSize, 0), 100)
 }
 
 func calcCacheEfficiency(cu *CurrentUsage) *int {

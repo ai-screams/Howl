@@ -57,6 +57,12 @@ type FeatureToggles struct {
 	SessionName bool `json:"session_name"`
 	PullRequest bool `json:"pull_request"`
 	Worktree    bool `json:"worktree"`
+	PromptCache bool `json:"prompt_cache"`
+	FastMode    bool `json:"fast_mode"`
+	Exceeds200K bool `json:"exceeds_200k"`
+	OutputStyle bool `json:"output_style"`
+	Repo        bool `json:"repo"`
+	AddedDirs   bool `json:"added_dirs"`
 }
 
 var presets = map[string]FeatureToggles{
@@ -149,6 +155,24 @@ func mergeFeatures(base, override FeatureToggles) FeatureToggles {
 	}
 	if override.Worktree {
 		result.Worktree = true
+	}
+	if override.PromptCache {
+		result.PromptCache = true
+	}
+	if override.FastMode {
+		result.FastMode = true
+	}
+	if override.Exceeds200K {
+		result.Exceeds200K = true
+	}
+	if override.OutputStyle {
+		result.OutputStyle = true
+	}
+	if override.Repo {
+		result.Repo = true
+	}
+	if override.AddedDirs {
+		result.AddedDirs = true
 	}
 	return result
 }
