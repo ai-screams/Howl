@@ -97,8 +97,35 @@ Enable individually via `features` in `~/.claude/hud/config.json` or `/howl:cust
 - **effort** — Shows current effort level (`E:high`)
 - **thinking** — Shows extended thinking indicator (`Think`)
 - **session_name** — Shows truncated session name
-- **pull_request** — Shows linked PR (`PR#1234 pending`)
-- **worktree** — Shows active git worktree (`wt:name`)
+- **pull_request** — Shows linked PR (`PR#1234 pending`). Labels GitLab merge requests `MR#` via `pr.kind` (CC 2.1.234+), and links the badge to `pr.url` with an OSC 8 hyperlink where the terminal supports one
+- **worktree** — Shows active git worktree (`wt:name`). Falls back to `workspace.git_worktree`, which is populated for any linked worktree, not just worktree sessions
+- **prompt_cache** — Session-wide prompt cache state (CC 2.1.251+): hit ratio (`Hit:97%`), time until the cached prefix goes cold (`warm:0h42m`), and rebuilds with their likely cause (`miss:2 tools_changed`). Distinct from **cache_efficiency**, which describes only the most recent API call
+- **fast_mode** — Marks a session running in fast mode (`↯`)
+- **exceeds_200k** — Warns when the last response crossed 200k total tokens (`>200K`). This threshold is fixed regardless of window size, so on a 1M-context model the context bar can read low while this is already true
+- **output_style** — Names the active output style; the `default` style is skipped
+- **repo** — Repository from the `origin` remote (`owner/name`), parsed by Claude Code, so it costs no git subprocess
+- **added_dirs** — Count of extra directories added with `/add-dir` (`+2d`)
+
+### Subagent Panel Rows 🧵
+
+Howl can also render the agent panel rows below the prompt, replacing the default
+`name · description · token count` with a per-row context percentage computed from
+each task's own model window:
+
+```json
+{
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "~/.claude/hud/howl --subagent"
+  }
+}
+```
+
+Each row shows `name · status · ctx% (tokens) · E:effort`, omitting any segment Claude
+Code did not supply and dropping trailing segments rather than wrapping. Rows Howl has
+nothing to add to keep their default rendering. Per-task `model` and `contextWindowSize`
+require CC 2.1.205+; `effort` requires CC 2.1.214+ and accepts either a level name or a
+numeric token budget.
 
 ### Adaptive Layouts 🎨
 
