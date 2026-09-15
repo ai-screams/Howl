@@ -28,11 +28,14 @@ if ! "$PRETTIER" -c -u "**/*.md" "**/*.yaml" "**/*.yml" 2>&1; then
     exit 1
 fi
 
-# go mod tidy check
+# go mod tidy check.
+# Compare what tidy produces against what is staged, not against HEAD:
+# git status reports staged changes too, so the old check failed every commit
+# that intentionally edited go.mod even when tidy had nothing to say.
 go mod tidy
-if [ -n "$(git status --porcelain go.mod go.sum 2>/dev/null)" ]; then
-    echo "pre-commit: go.mod needs tidy. Run 'go mod tidy' and commit the changes."
-    git checkout go.mod go.sum 2>/dev/null # Restore if changed
+if ! git diff --quiet -- go.mod go.sum 2>/dev/null; then
+    echo "pre-commit: go.mod needs tidy. Run 'go mod tidy' and stage the result."
+    git checkout -- go.mod go.sum 2>/dev/null # Restore the staged content
     exit 1
 fi
 
