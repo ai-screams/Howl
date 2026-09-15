@@ -102,6 +102,11 @@ func renderNormalMode(rc RenderContext) []string {
 	if cfg.Features.CostVelocity && m.CostPerMinute != nil {
 		line3 = append(line3, renderCostVelocityLabeled(*m.CostPerMinute, t))
 	}
+	if cfg.Features.Exceeds200K {
+		if s := renderExceeds200K(d.Exceeds200KTokens); s != "" {
+			line3 = append(line3, s)
+		}
+	}
 	if cfg.Features.VimMode && d.Vim != nil && d.Vim.Mode != "" {
 		line3 = append(line3, renderVimCompact(d.Vim.Mode))
 	}
@@ -129,7 +134,38 @@ func renderNormalMode(rc RenderContext) []string {
 		}
 	}
 	if cfg.Features.Worktree {
-		if s := renderWorktreeName(d.Worktree); s != "" {
+		if s := renderWorktreeName(d.Worktree, d.Workspace.GitWorktree); s != "" {
+			line3 = append(line3, s)
+		}
+	}
+	if cfg.Features.PromptCache {
+		for _, s := range []string{
+			renderCacheHitRatio(d.PromptCache, t),
+			renderCacheWarmth(d.PromptCache),
+			renderCacheMiss(d.PromptCache),
+		} {
+			if s != "" {
+				line3 = append(line3, s)
+			}
+		}
+	}
+	if cfg.Features.FastMode {
+		if s := renderFastMode(d.FastMode); s != "" {
+			line3 = append(line3, s)
+		}
+	}
+	if cfg.Features.OutputStyle {
+		if s := renderOutputStyle(d.OutputStyle); s != "" {
+			line3 = append(line3, s)
+		}
+	}
+	if cfg.Features.Repo {
+		if s := renderRepo(d.Workspace.Repo); s != "" {
+			line3 = append(line3, s)
+		}
+	}
+	if cfg.Features.AddedDirs {
+		if s := renderAddedDirs(d.Workspace.AddedDirs); s != "" {
 			line3 = append(line3, s)
 		}
 	}
@@ -166,7 +202,7 @@ func renderNormalMode(rc RenderContext) []string {
 		lines = append(lines, joinParts(line2))
 	}
 	if len(line3) > 0 {
-		lines = append(lines, joinParts(line3))
+		lines = append(lines, joinParts(fitParts(line3, terminalColumns())))
 	}
 	if len(line4) > 0 {
 		lines = append(lines, joinParts(line4))
@@ -228,9 +264,9 @@ func renderDangerMode(rc RenderContext) []string {
 }
 
 func renderModelBadge(m Model, contextSize int) string {
-	name := m.DisplayName
+	name := sanitizeText(m.DisplayName)
 	if name == "" {
-		name = m.ID
+		name = sanitizeText(m.ID)
 	}
 	if name == "" {
 		name = "?"
@@ -245,9 +281,14 @@ func renderModelBadge(m Model, contextSize int) string {
 		suffix = " VX" // Vertex
 	}
 
-	// Append context window size (only for large windows like 1M+)
+	// Append context window size (only for large windows like 1M+). Claude Code
+	// display names can already carry it — "Opus 5 (1M context)" — so skip the
+	// suffix when the name already says it rather than printing it twice.
 	if contextSize >= 1000000 {
-		suffix += " (" + formatTokenCount(contextSize) + " context)"
+		label := "(" + formatTokenCount(contextSize) + " context)"
+		if !strings.Contains(name, label) {
+			suffix += " " + label
+		}
 	}
 
 	var color string
@@ -265,9 +306,27 @@ func renderModelBadge(m Model, contextSize int) string {
 	return fmt.Sprintf("%s[%s%s]%s", color, name, suffix, Reset)
 }
 
+// usedContextTokens returns how much of the context window is consumed.
+//
+// Claude Code reports this exactly in total_input_tokens, which counts input
+// only — input_tokens + cache_creation_input_tokens + cache_read_input_tokens,
+// excluding output_tokens — the same quantity used_percentage describes.
+// Deriving the count from that integer percentage instead round-trips through
+// a rounded value: on a 1M-context window a real 138,106 tokens reports as 14%
+// and derives back to 140,000, overstating by nearly 2K.
+//
+// Falls back to the derivation before the first API response, when the exact
+// count is still zero.
+func usedContextTokens(cw ContextWindow, percent int) int {
+	if cw.TotalInputTokens > 0 {
+		return cw.TotalInputTokens
+	}
+	return cw.ContextWindowSize * percent / 100
+}
+
 func renderContextBar(percent int, cw ContextWindow, t Thresholds) string {
 	const width = 10
-	filled := min(width*percent/100, width)
+	filled := max(0, min(width*percent/100, width))
 	bar := buildBar(filled, width)
 
 	color := contextColor(percent, t)
@@ -278,10 +337,8 @@ func renderContextBar(percent int, cw ContextWindow, t Thresholds) string {
 		prefix = "⚠ "
 	}
 
-	// Calculate absolute token usage from percentage (more accurate)
-	// The percentage is provided by Claude Code and accounts for all token types
 	totalTokens := cw.ContextWindowSize
-	usedTokens := totalTokens * percent / 100
+	usedTokens := usedContextTokens(cw, percent)
 
 	// Pad used tokens to match total's width for fixed-width display
 	total := formatTokenCount(totalTokens)
@@ -293,7 +350,7 @@ func renderContextBar(percent int, cw ContextWindow, t Thresholds) string {
 // renderContextBarDanger renders context bar with remaining tokens and ETA for danger mode.
 func renderContextBarDanger(percent int, cw ContextWindow, durationMS int64, t Thresholds) string {
 	const width = 10
-	filled := min(width*percent/100, width)
+	filled := max(0, min(width*percent/100, width))
 	bar := buildBar(filled, width)
 
 	color := contextColor(percent, t)
@@ -301,8 +358,7 @@ func renderContextBarDanger(percent int, cw ContextWindow, durationMS int64, t T
 
 	// Remaining tokens
 	totalTokens := cw.ContextWindowSize
-	usedTokens := totalTokens * percent / 100
-	remainTokens := totalTokens - usedTokens
+	remainTokens := totalTokens - usedContextTokens(cw, percent)
 
 	// ETA: estimate minutes until context is full
 	eta := ""
@@ -397,6 +453,7 @@ func renderWorkspace(d *StdinData) string {
 			break
 		}
 	}
+	name = sanitizeText(name)
 	if name == "" {
 		return ""
 	}
@@ -405,7 +462,7 @@ func renderWorkspace(d *StdinData) string {
 
 func renderAccount(account *AccountInfo) string {
 	// Display full email in grey/dim color
-	return grey + account.EmailAddress + Reset
+	return grey + sanitizeText(account.EmailAddress) + Reset
 }
 
 func renderGitCompact(g *GitInfo) string {
@@ -416,7 +473,7 @@ func renderGitCompact(g *GitInfo) string {
 	if g.Dirty {
 		dirty = "*"
 	}
-	return fmt.Sprintf("%s%s%s%s", magenta, g.Branch, dirty, Reset)
+	return fmt.Sprintf("%s%s%s%s", magenta, sanitizeText(g.Branch), dirty, Reset)
 }
 
 func renderLineChanges(c Cost) string {
@@ -504,6 +561,9 @@ func renderVimCompact(mode string) string {
 	case "visual":
 		color = magenta
 		return color + "Visual" + Reset
+	case "visual line":
+		color = magenta
+		return color + "V-Line" + Reset
 	default:
 		return ""
 	}
@@ -513,7 +573,7 @@ func renderVersion(version string) string {
 	if version == "" {
 		return ""
 	}
-	return grey + "v" + version + Reset
+	return grey + "v" + sanitizeText(version) + Reset
 }
 
 // Optional CC 2.1 field renderers. Each returns "" when its source is absent so
@@ -523,7 +583,7 @@ func renderEffort(e *Effort) string {
 	if e == nil || e.Level == "" {
 		return ""
 	}
-	return dim + "E:" + e.Level + Reset
+	return dim + "E:" + sanitizeText(e.Level) + Reset
 }
 
 func renderThinking(th *Thinking) string {
@@ -534,6 +594,7 @@ func renderThinking(th *Thinking) string {
 }
 
 func renderSessionName(name string) string {
+	name = sanitizeText(name)
 	if name == "" {
 		return ""
 	}
@@ -548,23 +609,136 @@ func renderPR(pr *PullRequest) string {
 	if pr == nil || pr.Number == 0 {
 		return ""
 	}
-	s := fmt.Sprintf("%sPR#%d", cyan, pr.Number)
-	if pr.ReviewState != "" {
-		s += " " + pr.ReviewState
+	// On a GitLab remote the same object describes a merge request, so labeling
+	// it "PR#" would name the wrong thing.
+	label := "PR#"
+	if pr.Kind == "mr" {
+		label = "MR#"
+	}
+	// Link the whole badge, not just the digits, so the click target matches
+	// what reads as one token.
+	s := cyan + osc8Link(pr.URL, fmt.Sprintf("%s%d", label, pr.Number))
+	if state := sanitizeText(pr.ReviewState); state != "" {
+		s += " " + state
 	}
 	return s + Reset
 }
 
-func renderWorktreeName(wt *Worktree) string {
-	if wt == nil || wt.Name == "" {
+// renderWorktreeName names the active worktree. worktree.* is present only in a
+// worktree session, so it falls back to workspace.git_worktree, which Claude
+// Code populates for any linked worktree.
+func renderWorktreeName(wt *Worktree, gitWorktree string) string {
+	name := sanitizeText(gitWorktree)
+	if wt != nil && wt.Name != "" {
+		name = sanitizeText(wt.Name)
+	}
+	if name == "" {
 		return ""
 	}
-	name := wt.Name
 	runes := []rune(name)
 	if len(runes) > 10 {
 		name = string(runes[:10])
 	}
 	return cyan + "wt:" + name + Reset
+}
+
+// Prompt cache renderers. Claude Code computes these over the whole session,
+// unlike Metrics.CacheEfficiency, which describes only the most recent API
+// call — the two answer different questions and neither replaces the other.
+// Each returns "" when its source is absent.
+
+// renderCacheHitRatio shows the session-wide hit ratio. Labeled "Hit:" so it
+// reads distinctly from the last-call "Cache:" segment.
+func renderCacheHitRatio(pc *PromptCache, t Thresholds) string {
+	if pc == nil || pc.HitRatio == nil {
+		return ""
+	}
+	pct := int(*pc.HitRatio * 100)
+	return fmt.Sprintf("%sHit:%s%d%%%s", grey, cacheColor(pct, t), pct, Reset)
+}
+
+// renderCacheWarmth shows how long the cached prefix stays warm. This cannot be
+// derived from current_usage at all, and Claude Code re-runs the status line
+// when expires_at passes, so the countdown refreshes on its own.
+func renderCacheWarmth(pc *PromptCache) string {
+	if pc == nil || !pc.CachingObserved {
+		return ""
+	}
+	if !pc.Warm || pc.ExpiresAt == nil {
+		return grey + "cold" + Reset
+	}
+	until := formatTimeUntilWithMinutes(time.Now(), time.Unix(*pc.ExpiresAt, 0))
+	return fmt.Sprintf("%swarm:%s%s%s", grey, green, until, Reset)
+}
+
+// renderCacheMiss surfaces cache rebuilds the session paid for, naming the
+// likely cause when Claude Code identified one. Silent at zero misses, which is
+// the normal case, so it costs no width until something goes wrong.
+func renderCacheMiss(pc *PromptCache) string {
+	if pc == nil || pc.Misses == 0 {
+		return ""
+	}
+	s := fmt.Sprintf("%smiss:%s%d", grey, yellow, pc.Misses)
+	if pc.LastMissCause != nil && len(pc.LastMissCause.Causes) > 0 {
+		s += " " + sanitizeText(pc.LastMissCause.Causes[0])
+	}
+	return s + Reset
+}
+
+// renderFastMode marks a session running in fast mode, using the same icon
+// Claude Code shows in its own UI.
+func renderFastMode(on bool) string {
+	if !on {
+		return ""
+	}
+	return boldYlw + "\u21af" + Reset
+}
+
+// renderExceeds200K warns that the last response crossed 200k total tokens.
+// The threshold is fixed regardless of window size, so on a 1M-context model
+// the context bar can still read low while this is already true.
+func renderExceeds200K(exceeds bool) string {
+	if !exceeds {
+		return ""
+	}
+	return yellow + ">200K" + Reset
+}
+
+// renderOutputStyle names the active output style. The default style carries no
+// information, so it is skipped rather than spending width to say "default".
+func renderOutputStyle(os *OutputStyle) string {
+	if os == nil {
+		return ""
+	}
+	name := sanitizeText(os.Name)
+	if name == "" || strings.EqualFold(name, "default") {
+		return ""
+	}
+	return dim + name + Reset
+}
+
+// renderRepo names the repository from the origin remote. Claude Code parses
+// this itself, so it costs no git subprocess.
+func renderRepo(r *RepoInfo) string {
+	if r == nil {
+		return ""
+	}
+	name, owner := sanitizeText(r.Name), sanitizeText(r.Owner)
+	if name == "" {
+		return ""
+	}
+	if owner == "" {
+		return grey + name + Reset
+	}
+	return grey + owner + "/" + name + Reset
+}
+
+// renderAddedDirs counts the extra directories added with /add-dir.
+func renderAddedDirs(dirs []string) string {
+	if len(dirs) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%s+%dd%s", grey, len(dirs), Reset)
 }
 
 // terminalColumns returns the terminal width from the COLUMNS env var that
@@ -580,6 +754,7 @@ func terminalColumns() int {
 }
 
 func renderAgentCompact(name string) string {
+	name = sanitizeText(name)
 	runes := []rune(name)
 	if len(runes) > 8 {
 		name = string(runes[:8])
@@ -592,28 +767,97 @@ const (
 	maxToolLineWidth = 80
 )
 
-// visibleLen computes the display width of a string, excluding ANSI escape sequences.
-// This implementation assumes all ANSI codes follow the CSI SGR (Select Graphic Rendition)
-// pattern: \033[...m. This is valid for this codebase, which uses only standard SGR codes
-// (colors, bold, dim) and 8-bit extended colors (\033[38;5;Nm). Other escape sequence
-// types (like cursor movement or OSC sequences) are not used and would require different parsing.
+// visibleLen computes the display width of a string, excluding ANSI escape
+// sequences. It handles the two families this codebase emits: CSI SGR colors
+// (\033[...m, including 8-bit \033[38;5;Nm) and OSC 8 hyperlinks
+// (\033]8;;URL followed by BEL or ST). An OSC sequence has no "m" terminator,
+// so treating it as CSI would count most of a URL as visible text.
 func visibleLen(s string) int {
-	inEscape := false
 	count := 0
-	for _, r := range s {
-		if r == '\033' {
-			inEscape = true
+	runes := []rune(s)
+	for i := 0; i < len(runes); i++ {
+		if runes[i] != '\033' {
+			count++
 			continue
 		}
-		if inEscape {
-			if r == 'm' {
-				inEscape = false
+		if i+1 >= len(runes) {
+			break
+		}
+		switch runes[i+1] {
+		case '[': // CSI: parameters then a final byte, always "m" here
+			i += 2
+			for i < len(runes) && runes[i] != 'm' {
+				i++
 			}
-			continue
+		case ']': // OSC: payload terminated by BEL or ST (ESC backslash)
+			i += 2
+			for i < len(runes) {
+				if runes[i] == '\a' {
+					break
+				}
+				if runes[i] == '\033' && i+1 < len(runes) && runes[i+1] == '\\' {
+					i++ // consume the ST backslash as well
+					break
+				}
+				i++
+			}
+		default:
+			i++ // two-character escape
 		}
-		count++
 	}
 	return count
+}
+
+// sanitizeText strips control characters from any string Howl did not author
+// before it reaches the terminal.
+//
+// Howl prints raw ANSI, so an escape sequence carried inside a rendered value
+// is executed by the terminal rather than displayed. Several rendered values
+// are outside the user's control: session_name is model-generated, subagent
+// names and descriptions come from model-authored Task calls, workspace.repo
+// is parsed from the git remote, and tool and agent names come from the
+// transcript. A crafted value can clear the screen, move the cursor to hide
+// output, or reach OSC 52 to write the terminal clipboard.
+//
+// This strips the C0 range and DEL, which removes ESC and therefore every
+// escape sequence. Howl's own colors are added around sanitized text, never
+// through it, so they are unaffected.
+func sanitizeText(s string) string {
+	if !strings.ContainsFunc(s, isControl) {
+		return s // common case: no allocation
+	}
+	return strings.Map(func(r rune) rune {
+		if isControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+func isControl(r rune) bool {
+	return r < 0x20 || r == 0x7f
+}
+
+// sanitizeURL strips control characters from a URL before it goes into an OSC 8
+// sequence. A newline there would split one row across two output lines and
+// break the one-line-per-row contract.
+func sanitizeURL(u string) string {
+	return sanitizeText(u)
+}
+
+// osc8Link wraps text in an OSC 8 hyperlink. Terminals without hyperlink
+// support ignore the sequence and show the text unchanged, so this is safe to
+// emit unconditionally. Returns text untouched when there is no URL.
+func osc8Link(url, text string) string {
+	// A control byte in the URL would terminate the sequence early or split the
+	// status line across rows, so strip them before they reach the terminal.
+	url = sanitizeURL(url)
+	// Only link web URLs. Terminals differ on which schemes they will open, and
+	// a status line has no reason to hand one a javascript: or file: target.
+	if !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://") {
+		return text
+	}
+	return "\033]8;;" + url + "\a" + text + "\033]8;;\a"
 }
 
 func truncateToolName(name string, maxLen int) string {
@@ -647,7 +891,7 @@ func renderTools(tools map[string]int, maxWidth int) string {
 	var result string
 	shown := 0
 	for _, e := range entries {
-		name := truncateToolName(e.name, maxToolNameLen)
+		name := truncateToolName(sanitizeText(e.name), maxToolNameLen)
 		part := fmt.Sprintf("%s%s%s(%d)", blue, name, Reset, e.count)
 
 		candidate := result
@@ -688,7 +932,7 @@ func renderAgents(agents []string) string {
 		if i > 0 {
 			result += ","
 		}
-		result += fmt.Sprintf("%s%s%s", cyan, a, Reset)
+		result += fmt.Sprintf("%s%s%s", cyan, sanitizeText(a), Reset)
 	}
 	return result
 }
@@ -820,6 +1064,11 @@ func quotaColor(remaining float64, t Thresholds) string {
 
 // buildBar creates a fixed-width progress bar with filled (█) and empty (░) characters.
 func buildBar(filled, width int) string {
+	// Callers clamp, but this is the function that writes: a filled count
+	// outside [0, width] would make the second loop run without bound, and
+	// Grow panics outright on a negative count.
+	width = max(width, 0)
+	filled = min(max(filled, 0), width)
 	var b strings.Builder
 	b.Grow(width)
 	for range filled {
@@ -829,6 +1078,23 @@ func buildBar(filled, width int) string {
 		b.WriteRune('░')
 	}
 	return b.String()
+}
+
+// fitParts drops trailing parts until the joined line fits maxWidth. Parts are
+// appended in priority order, so the least important are shed first. At least
+// one part always survives: one oversized segment beats an empty line.
+//
+// Line 3 needs this because its length grows with every feature toggle — with
+// the optional fields all enabled it runs several times the terminal width, and
+// Claude Code wraps rather than truncates.
+func fitParts(parts []string, maxWidth int) []string {
+	if maxWidth <= 0 {
+		return parts
+	}
+	for len(parts) > 1 && visibleLen(joinParts(parts)) > maxWidth {
+		parts = parts[:len(parts)-1]
+	}
+	return parts
 }
 
 func joinParts(parts []string) string {

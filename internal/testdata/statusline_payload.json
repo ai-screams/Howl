@@ -1,0 +1,88 @@
+{
+  "session_id": "test-session",
+  "transcript_path": "/tmp/transcript.jsonl",
+  "cwd": "/tmp/project",
+  "prompt_id": "00000000-0000-0000-0000-000000000000",
+  "effort": {
+    "level": "xhigh"
+  },
+  "session_name": "fixture session",
+  "model": {
+    "id": "claude-opus-5[1m]",
+    "display_name": "Opus 5 (1M context)"
+  },
+  "workspace": {
+    "current_dir": "/tmp/project",
+    "project_dir": "/tmp/project",
+    "added_dirs": [],
+    "repo": {
+      "host": "github.com",
+      "owner": "ai-screams",
+      "name": "howl"
+    }
+  },
+  "version": "2.1.272",
+  "output_style": {
+    "name": "default"
+  },
+  "cost": {
+    "total_cost_usd": 4.6990877499999995,
+    "total_duration_ms": 2885564,
+    "total_api_duration_ms": 614956,
+    "total_lines_added": 0,
+    "total_lines_removed": 0
+  },
+  "context_window": {
+    "total_input_tokens": 138106,
+    "total_output_tokens": 482,
+    "context_window_size": 1000000,
+    "current_usage": {
+      "input_tokens": 2,
+      "output_tokens": 482,
+      "cache_creation_input_tokens": 913,
+      "cache_read_input_tokens": 137191
+    },
+    "used_percentage": 14,
+    "remaining_percentage": 86
+  },
+  "exceeds_200k_tokens": false,
+  "prompt_cache": {
+    "warm": true,
+    "caching_observed": true,
+    "ttl": "1h",
+    "expires_at": 1789455504,
+    "requests": 40,
+    "misses": 0,
+    "expected_rebuilds": 0,
+    "hit_ratio": 0.9716371215543115,
+    "cache_write_tokens": 105598,
+    "miss_recache_tokens": 0,
+    "last_miss_at": null,
+    "last_miss_cause": null,
+    "miss_causes": {},
+    "recache_tokens_if_cold": 138106
+  },
+  "fast_mode": false,
+  "thinking": {
+    "enabled": true
+  },
+  "rate_limits": {
+    "five_hour": {
+      "used_percentage": 33,
+      "resets_at": 1789455000
+    },
+    "seven_day": {
+      "used_percentage": 27,
+      "resets_at": 1789930800
+    }
+  },
+  "vim": {
+    "mode": "INSERT"
+  },
+  "pr": {
+    "number": 23,
+    "url": "https://gitlab.com/g/p/-/merge_requests/23",
+    "review_state": "approved",
+    "kind": "mr"
+  }
+}

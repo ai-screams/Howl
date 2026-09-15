@@ -725,3 +725,35 @@ func TestValidateThresholds_QuotaCriticalHigh(t *testing.T) {
 		t.Errorf("QuotaHigh should not exceed 100, got %.1f", th.QuotaHigh)
 	}
 }
+
+// mergeFeatures is explicit per field, so a new toggle is easy to add to the
+// struct and forget in the merge. Each must survive an override.
+func TestMergeFeatures_NewToggles(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		override FeatureToggles
+		get      func(FeatureToggles) bool
+	}{
+		{"prompt cache", FeatureToggles{PromptCache: true}, func(f FeatureToggles) bool { return f.PromptCache }},
+		{"fast mode", FeatureToggles{FastMode: true}, func(f FeatureToggles) bool { return f.FastMode }},
+		{"exceeds 200k", FeatureToggles{Exceeds200K: true}, func(f FeatureToggles) bool { return f.Exceeds200K }},
+		{"output style", FeatureToggles{OutputStyle: true}, func(f FeatureToggles) bool { return f.OutputStyle }},
+		{"repo", FeatureToggles{Repo: true}, func(f FeatureToggles) bool { return f.Repo }},
+		{"added dirs", FeatureToggles{AddedDirs: true}, func(f FeatureToggles) bool { return f.AddedDirs }},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := mergeFeatures(FeatureToggles{}, tc.override); !tc.get(got) {
+				t.Errorf("mergeFeatures dropped the %s override", tc.name)
+			}
+			// Merging is additive only: a false override must not disable it.
+			if got := mergeFeatures(tc.override, FeatureToggles{}); !tc.get(got) {
+				t.Errorf("mergeFeatures disabled %s on an empty override", tc.name)
+			}
+		})
+	}
+}

@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 // fixture returns the path to a testdata fixture file.
@@ -285,4 +287,42 @@ func TestShortenToolName(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Opening a FIFO blocks until a writer appears. ParseTranscript runs on every
+// status line refresh, so a non-regular path must degrade, not hang.
+func TestTailLines_RefusesNonRegularFiles(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	t.Run("directory", func(t *testing.T) {
+		t.Parallel()
+		if _, err := tailLines(dir, 1024, 10); err == nil {
+			t.Error("tailLines accepted a directory, want an error")
+		}
+	})
+
+	t.Run("fifo returns instead of blocking", func(t *testing.T) {
+		t.Parallel()
+		fifo := filepath.Join(dir, "fifo")
+		if err := syscall.Mkfifo(fifo, 0o600); err != nil {
+			t.Skipf("cannot create a FIFO here: %v", err)
+		}
+
+		done := make(chan error, 1)
+		go func() {
+			_, err := tailLines(fifo, 1024, 10)
+			done <- err
+		}()
+
+		select {
+		case err := <-done:
+			if err == nil {
+				t.Error("tailLines accepted a FIFO, want an error")
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatal("tailLines blocked on a FIFO with no writer")
+		}
+	})
 }

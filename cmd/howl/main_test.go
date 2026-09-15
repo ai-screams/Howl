@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -333,5 +334,76 @@ func TestE2E_EmptyJSON(t *testing.T) {
 
 	if stdout == "" {
 		t.Error("stdout is empty, want some output (no panic)")
+	}
+}
+
+func TestE2E_SubagentRows(t *testing.T) {
+	t.Parallel()
+
+	input := `{
+		"session_id": "s",
+		"columns": 80,
+		"tasks": [
+			{"id": "t1", "name": "explore", "status": "running",
+			 "contextWindowSize": 200000, "tokenCount": 50000, "effort": "high"},
+			{"id": "t2", "name": "executor", "effort": 32000},
+			{"name": "no-id", "status": "running"}
+		]
+	}`
+
+	stdout, stderr, exitCode := runBinary(t, input, "--subagent")
+
+	if exitCode != 0 {
+		t.Fatalf("exitCode = %d, want 0 (stderr: %q)", exitCode, stderr)
+	}
+	if stderr != "" {
+		t.Errorf("stderr = %q, want empty", stderr)
+	}
+
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d rows, want 2 (the task without an id is skipped): %q", len(lines), stdout)
+	}
+
+	wantIDs := []string{"t1", "t2"}
+	for i, line := range lines {
+		var row struct {
+			ID      string `json:"id"`
+			Content string `json:"content"`
+		}
+		if err := json.Unmarshal([]byte(line), &row); err != nil {
+			t.Fatalf("row %d is not valid JSON: %v (%q)", i, err, line)
+		}
+		if row.ID != wantIDs[i] {
+			t.Errorf("row %d id = %q, want %q", i, row.ID, wantIDs[i])
+		}
+		if row.Content == "" {
+			t.Errorf("row %d has empty content", i)
+		}
+		if strings.Contains(row.Content, " ") {
+			t.Errorf("row %d content contains a plain space, want NBSP: %q", i, row.Content)
+		}
+	}
+
+	// 50000/200000 is the per-row context percentage Claude Code cannot render
+	// by default; it is the reason this mode exists.
+	if !strings.Contains(lines[0], "25%") {
+		t.Errorf("row t1 missing per-row context percentage: %q", lines[0])
+	}
+}
+
+func TestE2E_SubagentInvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	stdout, stderr, exitCode := runBinary(t, "not json", "--subagent")
+
+	if exitCode != 1 {
+		t.Errorf("exitCode = %d, want 1", exitCode)
+	}
+	if stdout != "" {
+		t.Errorf("stdout = %q, want empty", stdout)
+	}
+	if !strings.Contains(stderr, "subagent stdin parse error") {
+		t.Errorf("stderr = %q, want 'subagent stdin parse error'", stderr)
 	}
 }

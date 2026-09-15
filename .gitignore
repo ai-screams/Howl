@@ -474,3 +474,6 @@ $RECYCLE.BIN/
 .omc/
 
 # End of https://www.toptal.com/developers/gitignore/api/osx,windows,linux,git,python,go,vim,emacs,jetbrains+all,visualstudiocode,virtualenv
+
+# Internal working notes — never committed (see CLAUDE.md)
+.docs/

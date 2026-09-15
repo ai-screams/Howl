@@ -2,6 +2,7 @@ package internal
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -975,7 +976,7 @@ func TestOptionalFieldRenderers(t *testing.T) {
 		if got := renderPR(&PullRequest{Number: 0}); got != "" {
 			t.Errorf("renderPR(0) = %q, want empty", got)
 		}
-		if got := renderWorktreeName(nil); got != "" {
+		if got := renderWorktreeName(nil, ""); got != "" {
 			t.Errorf("renderWorktreeName(nil) = %q, want empty", got)
 		}
 	})
@@ -997,7 +998,7 @@ func TestOptionalFieldRenderers(t *testing.T) {
 		if got := renderPR(&PullRequest{Number: 9}); !strings.Contains(got, "PR#9") {
 			t.Errorf("renderPR(no review_state) = %q, want PR#9", got)
 		}
-		if got := renderWorktreeName(&Worktree{Name: "feat"}); !strings.Contains(got, "wt:feat") {
+		if got := renderWorktreeName(&Worktree{Name: "feat"}, ""); !strings.Contains(got, "wt:feat") {
 			t.Errorf("renderWorktreeName = %q, want wt:feat", got)
 		}
 	})
@@ -1007,7 +1008,7 @@ func TestOptionalFieldRenderers(t *testing.T) {
 		if got := renderSessionName("0123456789ABCDEF"); strings.Contains(got, "ABCDEF") {
 			t.Errorf("renderSessionName should truncate at 12 runes: %q", got)
 		}
-		if got := renderWorktreeName(&Worktree{Name: "0123456789XYZ"}); strings.Contains(got, "XYZ") {
+		if got := renderWorktreeName(&Worktree{Name: "0123456789XYZ"}, ""); strings.Contains(got, "XYZ") {
 			t.Errorf("renderWorktreeName should truncate at 10 runes: %q", got)
 		}
 	})
@@ -2037,4 +2038,676 @@ func TestQuotaPaceMarker(t *testing.T) {
 			t.Errorf("quotaPaceMarker(too early) = %q, want empty", got)
 		}
 	})
+}
+
+func int64Ptr(v int64) *int64 { return &v }
+
+// stripANSI removes the escape sequences Render emits — CSI SGR colors and OSC
+// 8 hyperlinks — so assertions can match on the visible text. Mirrors the
+// sequences visibleLen skips.
+func stripANSI(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		if s[i] != 0x1b || i+1 >= len(s) {
+			b.WriteByte(s[i])
+			i++
+			continue
+		}
+		switch s[i+1] {
+		case '[':
+			i += 2
+			for i < len(s) && s[i] != 'm' {
+				i++
+			}
+			i++ // consume the 'm'
+		case ']':
+			i += 2
+			for i < len(s) {
+				if s[i] == '\a' {
+					i++
+					break
+				}
+				if s[i] == 0x1b && i+1 < len(s) && s[i+1] == '\\' {
+					i += 2
+					break
+				}
+				i++
+			}
+		default:
+			i += 2
+		}
+	}
+	return b.String()
+}
+
+func TestRenderCacheHitRatio(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		pc   *PromptCache
+		want string
+	}{
+		{"nil prompt cache", nil, ""},
+		{"nil hit ratio before any tokens", &PromptCache{}, ""},
+		{"high ratio", &PromptCache{HitRatio: floatPtr(0.9716)}, "Hit:97%"},
+		{"zero ratio", &PromptCache{HitRatio: floatPtr(0)}, "Hit:0%"},
+		{"full ratio", &PromptCache{HitRatio: floatPtr(1)}, "Hit:100%"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := renderCacheHitRatio(tt.pc, DefaultThresholds())
+			if tt.want == "" {
+				if got != "" {
+					t.Errorf("renderCacheHitRatio() = %q, want empty", got)
+				}
+				return
+			}
+			if !strings.Contains(stripANSI(got), tt.want) {
+				t.Errorf("renderCacheHitRatio() = %q, want it to contain %q", stripANSI(got), tt.want)
+			}
+		})
+	}
+}
+
+func TestRenderCacheWarmth(t *testing.T) {
+	t.Parallel()
+
+	future := time.Now().Add(90 * time.Minute).Unix()
+	past := time.Now().Add(-5 * time.Minute).Unix()
+
+	tests := []struct {
+		name string
+		pc   *PromptCache
+		want string
+	}{
+		{"nil prompt cache", nil, ""},
+		{"caching not observed", &PromptCache{Warm: true, ExpiresAt: int64Ptr(future)}, ""},
+		{"cold cache", &PromptCache{CachingObserved: true, Warm: false}, "cold"},
+		{"warm but no expiry reported", &PromptCache{CachingObserved: true, Warm: true}, "cold"},
+		{"warm with 90m left", &PromptCache{CachingObserved: true, Warm: true, ExpiresAt: int64Ptr(future)}, "warm:1h29m"},
+		{"warm but already expired", &PromptCache{CachingObserved: true, Warm: true, ExpiresAt: int64Ptr(past)}, "warm:0h00m"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := stripANSI(renderCacheWarmth(tt.pc))
+			if tt.want == "" {
+				if got != "" {
+					t.Errorf("renderCacheWarmth() = %q, want empty", got)
+				}
+				return
+			}
+			if !strings.Contains(got, tt.want) {
+				t.Errorf("renderCacheWarmth() = %q, want it to contain %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRenderCacheMiss(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		pc   *PromptCache
+		want string
+	}{
+		{"nil prompt cache", nil, ""},
+		{"no misses stays silent", &PromptCache{Requests: 40, Misses: 0}, ""},
+		{"miss without identified cause", &PromptCache{Misses: 2}, "miss:2"},
+		{
+			"miss names its cause",
+			&PromptCache{Misses: 3, LastMissCause: &LastMissCause{Causes: []string{"tools_changed", "ttl_expired_5m"}}},
+			"miss:3 tools_changed",
+		},
+		{
+			"empty cause list falls back to the count",
+			&PromptCache{Misses: 1, LastMissCause: &LastMissCause{Causes: []string{}}},
+			"miss:1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := stripANSI(renderCacheMiss(tt.pc))
+			if tt.want == "" {
+				if got != "" {
+					t.Errorf("renderCacheMiss() = %q, want empty", got)
+				}
+				return
+			}
+			if got != tt.want {
+				t.Errorf("renderCacheMiss() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// The prompt cache segments are opt-in, like every other CC 2.1 field, so the
+// default layout must not change when Claude Code starts sending the object.
+func TestRender_PromptCacheIsOptIn(t *testing.T) {
+	t.Parallel()
+
+	data := &StdinData{
+		Model:         Model{DisplayName: "Opus"},
+		Workspace:     Workspace{CurrentDir: "/tmp/project"},
+		ContextWindow: ContextWindow{UsedPercentage: floatPtr(30), ContextWindowSize: 200000},
+		PromptCache: &PromptCache{
+			CachingObserved: true,
+			Warm:            true,
+			TTL:             "1h",
+			ExpiresAt:       int64Ptr(time.Now().Add(time.Hour).Unix()),
+			HitRatio:        floatPtr(0.97),
+			Misses:          2,
+			LastMissCause:   &LastMissCause{Causes: []string{"tools_changed"}},
+		},
+	}
+
+	cfg := PresetConfig("full")
+	off := stripANSI(strings.Join(Render(RenderContext{Data: data, Metrics: ComputeMetrics(data), Config: cfg}), "\n"))
+	for _, seg := range []string{"Hit:97%", "warm:", "miss:2"} {
+		if strings.Contains(off, seg) {
+			t.Errorf("prompt cache segment %q rendered while the toggle was off:\n%s", seg, off)
+		}
+	}
+
+	cfg.Features.PromptCache = true
+	on := stripANSI(strings.Join(Render(RenderContext{Data: data, Metrics: ComputeMetrics(data), Config: cfg}), "\n"))
+	for _, seg := range []string{"Hit:97%", "warm:", "miss:2 tools_changed"} {
+		if !strings.Contains(on, seg) {
+			t.Errorf("prompt cache segment %q missing while the toggle was on:\n%s", seg, on)
+		}
+	}
+}
+
+// Claude Code ships display names that already carry the window size, such as
+// "Opus 5 (1M context)". The badge must not repeat it.
+func TestRenderModelBadge_NoDuplicateContextSuffix(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		model       Model
+		contextSize int
+		want        string
+	}{
+		{
+			"display name already states the window",
+			Model{DisplayName: "Opus 5 (1M context)", ID: "claude-opus-5[1m]"},
+			1000000,
+			"[Opus 5 (1M context)]",
+		},
+		{
+			"display name omits it so the badge adds it",
+			Model{DisplayName: "Opus 5", ID: "claude-opus-5"},
+			1000000,
+			"[Opus 5 (1M context)]",
+		},
+		{
+			"standard window gets no suffix",
+			Model{DisplayName: "Sonnet 5", ID: "claude-sonnet-5"},
+			200000,
+			"[Sonnet 5]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := stripANSI(renderModelBadge(tt.model, tt.contextSize))
+			if got != tt.want {
+				t.Errorf("renderModelBadge() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// On a GitLab remote the pr object describes a merge request; labeling it "PR#"
+// names the wrong thing.
+func TestRenderPR_GitLabMergeRequest(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		pr   *PullRequest
+		want string
+	}{
+		{"absent", nil, ""},
+		{"github pull request", &PullRequest{Number: 23}, "PR#23"},
+		{"gitlab merge request", &PullRequest{Number: 23, Kind: "mr"}, "MR#23"},
+		{"merge request with review state", &PullRequest{Number: 7, Kind: "mr", ReviewState: "approved"}, "MR#7 approved"},
+		{"unknown kind stays a pull request", &PullRequest{Number: 1, Kind: "something"}, "PR#1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := stripANSI(renderPR(tt.pr))
+			if got != tt.want {
+				t.Errorf("renderPR() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// worktree.* exists only in a worktree session, but workspace.git_worktree is
+// populated for any linked worktree.
+func TestRenderWorktreeName_FallsBackToWorkspace(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		wt          *Worktree
+		gitWorktree string
+		want        string
+	}{
+		{"neither source", nil, "", ""},
+		{"worktree session wins", &Worktree{Name: "session"}, "linked", "wt:session"},
+		{"falls back to the linked worktree", nil, "linked", "wt:linked"},
+		{"empty session name falls back", &Worktree{}, "linked", "wt:linked"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := stripANSI(renderWorktreeName(tt.wt, tt.gitWorktree))
+			if got != tt.want {
+				t.Errorf("renderWorktreeName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRenderPreviouslyUnusedFields(t *testing.T) {
+	t.Parallel()
+
+	t.Run("exceeds 200k", func(t *testing.T) {
+		t.Parallel()
+		if got := stripANSI(renderExceeds200K(false)); got != "" {
+			t.Errorf("renderExceeds200K(false) = %q, want empty", got)
+		}
+		if got := stripANSI(renderExceeds200K(true)); got != ">200K" {
+			t.Errorf("renderExceeds200K(true) = %q, want \">200K\"", got)
+		}
+	})
+
+	t.Run("output style", func(t *testing.T) {
+		t.Parallel()
+		if got := renderOutputStyle(nil); got != "" {
+			t.Errorf("renderOutputStyle(nil) = %q, want empty", got)
+		}
+		if got := stripANSI(renderOutputStyle(&OutputStyle{})); got != "" {
+			t.Errorf("renderOutputStyle(empty name) = %q, want empty", got)
+		}
+		if got := stripANSI(renderOutputStyle(&OutputStyle{Name: "Explanatory"})); got != "Explanatory" {
+			t.Errorf("renderOutputStyle() = %q, want \"Explanatory\"", got)
+		}
+		for _, name := range []string{"default", "Default", "DEFAULT"} {
+			if got := stripANSI(renderOutputStyle(&OutputStyle{Name: name})); got != "" {
+				t.Errorf("renderOutputStyle(%q) = %q, want empty — the default style says nothing", name, got)
+			}
+		}
+	})
+
+	t.Run("repo", func(t *testing.T) {
+		t.Parallel()
+		if got := renderRepo(nil); got != "" {
+			t.Errorf("renderRepo(nil) = %q, want empty", got)
+		}
+		if got := stripANSI(renderRepo(&RepoInfo{Name: "howl"})); got != "howl" {
+			t.Errorf("renderRepo(no owner) = %q, want \"howl\"", got)
+		}
+		if got := stripANSI(renderRepo(&RepoInfo{Owner: "ai-screams", Name: "howl"})); got != "ai-screams/howl" {
+			t.Errorf("renderRepo() = %q, want \"ai-screams/howl\"", got)
+		}
+		// GitLab subgroups arrive as a slash-separated namespace path.
+		if got := stripANSI(renderRepo(&RepoInfo{Owner: "group/subgroup", Name: "app"})); got != "group/subgroup/app" {
+			t.Errorf("renderRepo(subgroup) = %q, want \"group/subgroup/app\"", got)
+		}
+	})
+
+	t.Run("added dirs", func(t *testing.T) {
+		t.Parallel()
+		if got := renderAddedDirs(nil); got != "" {
+			t.Errorf("renderAddedDirs(nil) = %q, want empty", got)
+		}
+		if got := renderAddedDirs([]string{}); got != "" {
+			t.Errorf("renderAddedDirs(empty) = %q, want empty", got)
+		}
+		if got := stripANSI(renderAddedDirs([]string{"/a", "/b"})); got != "+2d" {
+			t.Errorf("renderAddedDirs() = %q, want \"+2d\"", got)
+		}
+	})
+}
+
+// An OSC 8 hyperlink has no "m" terminator, so width math must parse it
+// separately from SGR colors or it counts most of a URL as visible text.
+func TestVisibleLen_OSC8(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+		want int
+	}{
+		{"plain text", "PR#23", 5},
+		{"sgr color", cyan + "PR#23" + Reset, 5},
+		{"osc 8 link", osc8Link("https://github.com/ai-screams/howl/pull/23", "PR#23"), 5},
+		{"osc 8 link with no m in the url", osc8Link("https://example.org/pull/23", "PR#23"), 5},
+		{"osc 8 inside color", cyan + osc8Link("https://example.org/x", "PR#23") + Reset, 5},
+		{"bel terminated osc", "\033]8;;https://example.org\aPR#23\033]8;;\a", 5},
+		{"no url means no sequence", osc8Link("", "PR#23"), 5},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := visibleLen(tt.in); got != tt.want {
+				t.Errorf("visibleLen(%q) = %d, want %d", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOSC8Link(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no url returns the text unchanged", func(t *testing.T) {
+		t.Parallel()
+		if got := osc8Link("", "PR#23"); got != "PR#23" {
+			t.Errorf("osc8Link(\"\") = %q, want %q", got, "PR#23")
+		}
+	})
+
+	t.Run("wraps the text and keeps it readable", func(t *testing.T) {
+		t.Parallel()
+		url := "https://github.com/ai-screams/howl/pull/23"
+		got := osc8Link(url, "PR#23")
+		if !strings.Contains(got, url) {
+			t.Errorf("link %q does not carry the url", got)
+		}
+		if stripANSI(got) != "PR#23" {
+			t.Errorf("visible text = %q, want %q", stripANSI(got), "PR#23")
+		}
+	})
+}
+
+func TestRenderPR_LinksWhenURLPresent(t *testing.T) {
+	t.Parallel()
+
+	url := "https://github.com/ai-screams/howl/pull/23"
+	got := renderPR(&PullRequest{Number: 23, URL: url})
+
+	if !strings.Contains(got, url) {
+		t.Errorf("renderPR did not embed the url: %q", got)
+	}
+	if stripANSI(got) != "PR#23" {
+		t.Errorf("visible text = %q, want %q", stripANSI(got), "PR#23")
+	}
+	if visibleLen(got) != 5 {
+		t.Errorf("visibleLen = %d, want 5 — the link must not inflate width math", visibleLen(got))
+	}
+
+	// Without a URL nothing is wrapped, so pre-link behavior is preserved.
+	plain := renderPR(&PullRequest{Number: 23})
+	if strings.Contains(plain, "\033]8") {
+		t.Errorf("renderPR emitted a hyperlink with no url: %q", plain)
+	}
+}
+
+func TestRenderFastMode(t *testing.T) {
+	t.Parallel()
+
+	if got := renderFastMode(false); got != "" {
+		t.Errorf("renderFastMode(false) = %q, want empty", got)
+	}
+	if got := stripANSI(renderFastMode(true)); got != "↯" {
+		t.Errorf("renderFastMode(true) = %q, want the fast mode icon", got)
+	}
+}
+
+// Every 2.1.x toggle must actually be wired into renderNormalMode. A toggle
+// that parses but is never consulted fails silently, so this asserts each one
+// both stays off by default and shows its segment when enabled.
+func TestRender_NewFieldTogglesAreWired(t *testing.T) {
+	t.Parallel()
+
+	data := &StdinData{
+		Model:             Model{DisplayName: "Opus"},
+		Workspace:         Workspace{CurrentDir: "/tmp/project", GitWorktree: "wt-linked", AddedDirs: []string{"/a", "/b"}, Repo: &RepoInfo{Owner: "ai-screams", Name: "howl"}},
+		ContextWindow:     ContextWindow{UsedPercentage: floatPtr(30), ContextWindowSize: 1000000},
+		Exceeds200KTokens: true,
+		FastMode:          true,
+		OutputStyle:       &OutputStyle{Name: "Explanatory"},
+		PR:                &PullRequest{Number: 23, Kind: "mr", URL: "https://gitlab.com/g/p/-/merge_requests/23"},
+	}
+
+	cases := []struct {
+		name   string
+		enable func(*FeatureToggles)
+		want   string
+	}{
+		{"fast mode", func(f *FeatureToggles) { f.FastMode = true }, "↯"},
+		{"exceeds 200k", func(f *FeatureToggles) { f.Exceeds200K = true }, ">200K"},
+		{"output style", func(f *FeatureToggles) { f.OutputStyle = true }, "Explanatory"},
+		{"repo", func(f *FeatureToggles) { f.Repo = true }, "ai-screams/howl"},
+		{"added dirs", func(f *FeatureToggles) { f.AddedDirs = true }, "+2d"},
+		{"merge request", func(f *FeatureToggles) { f.PullRequest = true }, "MR#23"},
+		{"linked worktree", func(f *FeatureToggles) { f.Worktree = true }, "wt:wt-linked"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			base := PresetConfig("full")
+			off := stripANSI(strings.Join(Render(RenderContext{Data: data, Metrics: ComputeMetrics(data), Config: base}), "\n"))
+			if strings.Contains(off, tc.want) {
+				t.Errorf("%q rendered while its toggle was off:\n%s", tc.want, off)
+			}
+
+			on := PresetConfig("full")
+			tc.enable(&on.Features)
+			got := stripANSI(strings.Join(Render(RenderContext{Data: data, Metrics: ComputeMetrics(data), Config: on}), "\n"))
+			if !strings.Contains(got, tc.want) {
+				t.Errorf("%q missing while its toggle was on:\n%s", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestFitParts(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		parts    []string
+		maxWidth int
+		wantLen  int
+	}{
+		{"no budget leaves everything", []string{"aaa", "bbb", "ccc"}, 0, 3},
+		{"already fits", []string{"aaa", "bbb"}, 80, 2},
+		{"sheds from the tail", []string{"aaaaa", "bbbbb", "ccccc"}, 13, 2},
+		{"keeps one oversized part rather than emptying the line", []string{strings.Repeat("x", 100), "y"}, 10, 1},
+		{"empty stays empty", nil, 80, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := fitParts(tt.parts, tt.maxWidth)
+			if len(got) != tt.wantLen {
+				t.Errorf("fitParts() kept %d parts (%q), want %d", len(got), got, tt.wantLen)
+			}
+			if tt.maxWidth > 0 && len(got) > 1 && visibleLen(joinParts(got)) > tt.maxWidth {
+				t.Errorf("fitParts() result is %d wide, over the %d budget", visibleLen(joinParts(got)), tt.maxWidth)
+			}
+		})
+	}
+}
+
+// Line 3 grows with every toggle. With all of them on it ran several times the
+// terminal width, and Claude Code wraps rather than truncating.
+func TestRender_Line3RespectsTerminalWidth(t *testing.T) {
+	data := &StdinData{
+		Model: Model{DisplayName: "Opus"}, Version: "2.1.272", SessionName: "my-session",
+		Workspace:         Workspace{CurrentDir: "/tmp/p", GitWorktree: "wt-linked", AddedDirs: []string{"/a", "/b"}, Repo: &RepoInfo{Owner: "ai-screams", Name: "howl"}},
+		ContextWindow:     ContextWindow{UsedPercentage: floatPtr(30), ContextWindowSize: 1000000, CurrentUsage: &CurrentUsage{InputTokens: 1000, CacheReadInputTokens: 90000, CacheCreationInputTokens: 9000}},
+		Cost:              Cost{TotalCostUSD: 4.7, TotalDurationMS: 3600000, TotalAPIDurationMS: 900000, TotalLinesAdded: 120, TotalLinesRemoved: 30},
+		Exceeds200KTokens: true, FastMode: true, OutputStyle: &OutputStyle{Name: "Explanatory"},
+		Vim: &Vim{Mode: "INSERT"}, Effort: &Effort{Level: "xhigh"}, Thinking: &Thinking{Enabled: true},
+		PR:       &PullRequest{Number: 23, Kind: "mr", URL: "https://gitlab.com/g/p/-/merge_requests/23", ReviewState: "approved"},
+		Worktree: &Worktree{Name: "feature-x"},
+		PromptCache: &PromptCache{
+			CachingObserved: true, Warm: true, TTL: "1h", ExpiresAt: int64Ptr(time.Now().Add(time.Hour).Unix()),
+			HitRatio: floatPtr(0.97), Misses: 2, LastMissCause: &LastMissCause{Causes: []string{"tools_changed"}},
+		},
+	}
+
+	cfg := PresetConfig("full")
+	f := &cfg.Features
+	f.PromptCache, f.FastMode, f.Exceeds200K, f.OutputStyle, f.Repo, f.AddedDirs = true, true, true, true, true, true
+	f.Effort, f.Thinking, f.SessionName, f.PullRequest, f.Worktree = true, true, true, true, true
+
+	// Quota bars are supplied so the layout under test is the real four-line
+	// one. Only the toggle line carries a width budget: line 1 and the quota
+	// line are fixed-shape and predate this change — the quota line is a known
+	// overflow at narrow widths, recorded in .docs/followups.md.
+	usage := &UsageData{
+		FiveHour: &UsageWindow{RemainingPercent: 67, ResetsAt: time.Now().Add(3 * time.Hour)},
+		SevenDay: &UsageWindow{RemainingPercent: 73, ResetsAt: time.Now().Add(5 * 24 * time.Hour)},
+	}
+
+	for _, cols := range []string{"60", "80", "120", "240"} {
+		t.Run("COLUMNS="+cols, func(t *testing.T) {
+			t.Setenv("COLUMNS", cols)
+			want := atoi(cols)
+			lines := Render(RenderContext{Data: data, Metrics: ComputeMetrics(data), Usage: usage, Config: cfg})
+			if len(lines) < 3 {
+				t.Fatalf("expected the quota layout to render at least 3 lines, got %d", len(lines))
+			}
+			// lines[2] is the toggle line — the one fitParts budgets.
+			if got := visibleLen(lines[2]); got > want {
+				t.Errorf("toggle line is %d columns, over the %s budget: %s", got, cols, stripANSI(lines[2]))
+			}
+		})
+	}
+
+	// The 200k warning and the session cache state must outrank the cosmetic
+	// segments, so a narrow terminal sheds the latter first.
+	t.Setenv("COLUMNS", "110")
+	out := stripANSI(strings.Join(Render(RenderContext{Data: data, Metrics: ComputeMetrics(data), Config: cfg}), "\n"))
+	if !strings.Contains(out, ">200K") {
+		t.Errorf("the 200K warning was shed before lower-value segments:\n%s", out)
+	}
+}
+
+func atoi(s string) int {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+// used_percentage is an integer, so deriving a token count from it loses
+// precision that total_input_tokens already reports exactly.
+func TestUsedContextTokens(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		cw      ContextWindow
+		percent int
+		want    int
+	}{
+		{
+			"exact count wins over the derivation",
+			ContextWindow{TotalInputTokens: 138106, ContextWindowSize: 1000000},
+			14,
+			138106,
+		},
+		{
+			"falls back before the first API response",
+			ContextWindow{TotalInputTokens: 0, ContextWindowSize: 200000},
+			25,
+			50000,
+		},
+		{
+			"fallback with no window size yields zero",
+			ContextWindow{},
+			25,
+			0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := usedContextTokens(tt.cw, tt.percent); got != tt.want {
+				t.Errorf("usedContextTokens() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestContextBars_ReportExactTokens(t *testing.T) {
+	t.Parallel()
+
+	// The real 2.1.272 payload: 138,106 tokens of a 1M window reported as 14%.
+	// Deriving from the percentage gives 140K, overstating by 1,894.
+	cw := ContextWindow{TotalInputTokens: 138106, ContextWindowSize: 1000000}
+
+	normal := stripANSI(renderContextBar(14, cw, DefaultThresholds()))
+	if !strings.Contains(normal, "138K") {
+		t.Errorf("normal bar = %q, want the exact 138K rather than a derived figure", normal)
+	}
+	if strings.Contains(normal, "140K") {
+		t.Errorf("normal bar = %q, still derives the count from the percentage", normal)
+	}
+
+	// Danger mode reports what is left, so the same precision applies.
+	danger := stripANSI(renderContextBarDanger(14, cw, 60000, DefaultThresholds()))
+	// 1,000,000 - 138,106 = 861,894, which formatTokenCount rounds to 862K.
+	// Deriving from the percentage would leave 860K.
+	if !strings.Contains(danger, "862K") {
+		t.Errorf("danger bar = %q, want 862K left (1M - 138,106)", danger)
+	}
+	if strings.Contains(danger, "860K") {
+		t.Errorf("danger bar = %q, still derives the count from the percentage", danger)
+	}
+}
+
+// The docs list four vim modes; VISUAL LINE used to fall through to "" and the
+// segment vanished, which reads as a broken feature rather than a mode.
+func TestRenderVimCompact_AllDocumentedModes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		mode string
+		want string
+	}{
+		{"NORMAL", "Normal"},
+		{"INSERT", "Insert"},
+		{"VISUAL", "Visual"},
+		{"VISUAL LINE", "V-Line"},
+		{"visual line", "V-Line"},
+		{"", ""},
+		{"SOMETHING ELSE", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.mode, func(t *testing.T) {
+			t.Parallel()
+			got := stripANSI(renderVimCompact(tt.mode))
+			if got != tt.want {
+				t.Errorf("renderVimCompact(%q) = %q, want %q", tt.mode, got, tt.want)
+			}
+		})
+	}
 }

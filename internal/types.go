@@ -16,12 +16,14 @@ type StdinData struct {
 	Cost              Cost          `json:"cost"`
 	ContextWindow     ContextWindow `json:"context_window"`
 	Exceeds200KTokens bool          `json:"exceeds_200k_tokens"`
+	FastMode          bool          `json:"fast_mode"`
 	OutputStyle       *OutputStyle  `json:"output_style"`
 	Vim               *Vim          `json:"vim"`
 	Agent             *Agent        `json:"agent"`
 	Effort            *Effort       `json:"effort"`
 	Thinking          *Thinking     `json:"thinking"`
 	RateLimits        *RateLimits   `json:"rate_limits"`
+	PromptCache       *PromptCache  `json:"prompt_cache"`
 	PR                *PullRequest  `json:"pr"`
 	Worktree          *Worktree     `json:"worktree"`
 }
@@ -86,7 +88,8 @@ type Vim struct {
 	Mode string `json:"mode"`
 }
 
-// Agent represents the active agent teammate if in team mode.
+// Agent names the active agent, present when Claude Code runs with the --agent
+// flag or with agent settings configured.
 type Agent struct {
 	Name string `json:"name"`
 }
@@ -107,6 +110,12 @@ type PullRequest struct {
 	Number      int    `json:"number"`
 	URL         string `json:"url"`
 	ReviewState string `json:"review_state"` // e.g. "pending"; may be absent
+
+	// Kind is "mr" when this describes a GitLab merge request, and absent for
+	// GitHub pull requests. On a GitLab remote, Claude Code sets ReviewState to
+	// "approved" when the MR is mergeable, "pending" for any other open state,
+	// and "draft" for a draft. Requires Claude Code 2.1.234+.
+	Kind string `json:"kind"`
 }
 
 // Worktree represents an active --worktree session.
@@ -130,6 +139,54 @@ type RateLimits struct {
 type RateLimitWindow struct {
 	UsedPercentage float64 `json:"used_percentage"`
 	ResetsAt       int64   `json:"resets_at"`
+}
+
+// PromptCache summarizes how the session's main conversation is using the
+// prompt cache. Claude Code derives it from the cache token counts in API
+// responses, so it is provider-independent. Absent until the main
+// conversation's first API response; subagent requests are not counted.
+// Requires Claude Code 2.1.251+.
+//
+// This is session-cumulative, unlike Metrics.CacheEfficiency, which describes
+// only the most recent API call. Neither supersedes the other.
+type PromptCache struct {
+	Warm            bool   `json:"warm"`
+	CachingObserved bool   `json:"caching_observed"`
+	TTL             string `json:"ttl"`        // "5m" or "1h"
+	ExpiresAt       *int64 `json:"expires_at"` // epoch seconds; nil when the last response reported no cache tokens
+
+	Requests         int `json:"requests"`
+	Misses           int `json:"misses"`
+	ExpectedRebuilds int `json:"expected_rebuilds"`
+
+	// HitRatio is cache reads over all input tokens this session, 0-1. The
+	// denominator counts cache reads, cache writes, and uncached input.
+	// nil while those counts are all zero.
+	HitRatio *float64 `json:"hit_ratio"`
+
+	CacheWriteTokens  int `json:"cache_write_tokens"`
+	MissRecacheTokens int `json:"miss_recache_tokens"`
+
+	LastMissAt    *int64         `json:"last_miss_at"`
+	LastMissCause *LastMissCause `json:"last_miss_cause"`
+	MissCauses    map[string]int `json:"miss_causes"`
+
+	// RecacheTokensIfCold is what the next request re-caches if the cache goes
+	// cold first. nil right after a compaction until the next request.
+	RecacheTokensIfCold *int `json:"recache_tokens_if_cold"`
+}
+
+// LastMissCause reports what Claude Code identified as the likely cause of the
+// most recent cache miss. Requires Claude Code 2.1.260+. nil until the
+// session's first miss, and again whenever no cause could be identified.
+type LastMissCause struct {
+	// Causes names one or more causes, such as "tools_changed",
+	// "system_prompt_changed", "ttl_expired_5m", or "likely_server_side".
+	Causes []string `json:"causes"`
+
+	ToolsAdded      int `json:"tools_added"`       // with "tools_changed"
+	ToolsRemoved    int `json:"tools_removed"`     // with "tools_changed"
+	SystemCharDelta int `json:"system_char_delta"` // with "system_prompt_changed"
 }
 
 // RenderContext bundles all inputs for Render. Optional sources (Git, Usage,
