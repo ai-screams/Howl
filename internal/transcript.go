@@ -3,6 +3,7 @@ package internal
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"sort"
@@ -134,6 +135,15 @@ func ParseTranscript(path string) *ToolInfo {
 
 // tailLines reads at most maxBytes from the end of a file and returns the last maxLines lines.
 func tailLines(path string, maxBytes int64, maxLines int) ([]string, error) {
+	// Stat before opening: opening a FIFO blocks until a writer appears, and
+	// this runs on every status line refresh, so a non-regular path here would
+	// hang the HUD rather than degrade it. Stat itself does not block.
+	if info, err := os.Stat(path); err != nil {
+		return nil, err
+	} else if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("transcript is not a regular file: %s", path)
+	}
+
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
