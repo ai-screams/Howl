@@ -31,6 +31,8 @@ go test ./cmd/howl -run TestVersionFlag -v
 
 ## Architecture
 
+A parallel `AGENTS.md` tree documents the same directories at more length. When the two disagree the code wins and both get fixed — a stale copy of the preset table in one of them went unnoticed for months.
+
 ### Data Pipeline (main.go)
 
 ```
@@ -52,6 +54,7 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 - **usage.go** — `UsageFromRateLimits()`: converts the stdin `rate_limits` object into the render model. Pure function — no network, cache, or Keychain
 - **transcript.go** — `ParseTranscript()`: tail-reads last 64KB/100 lines of JSONL, extracts top-5 tools + running agents
 - **account.go** — `GetAccountInfo()`: reads `~/.claude.json` for email display
+- **update.go** — `ReadUpdateNotice()`: reads `~/.claude/hud/.update-available`, written by the plugin's session-start hook. Never fetches — the render path stays offline
 - **subagent.go** — `RenderSubagentRows()`: serves the `subagentStatusLine` setting via `howl --subagent`. Separate input schema (camelCase field names, unlike the main snake_case one); writes one `{"id","content"}` JSON line per agent-panel row it overrides
 
 ### Test Conventions
@@ -85,7 +88,7 @@ Two things this pipeline depends on, both easy to break:
 
 ## Pre-commit Hooks
 
-Active via `git config core.hooksPath .githooks`. Runs: go format, prettier (md/yaml), go mod tidy, golangci-lint. ~3.8s. Tests run in CI only.
+Active via `git config core.hooksPath .githooks`. Runs: go format, prettier (md/yaml), go mod tidy, golangci-lint. ~2s. Tests run in CI only.
 
 The hook exits before any check when prettier is not on `PATH` or in `$(go env GOPATH)/bin`, so no commit is possible at all. Run `make setup`.
 
