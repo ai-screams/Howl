@@ -56,6 +56,9 @@ func main() {
 	// Get account info (optional)
 	account := internal.GetAccountInfo()
 
+	// A newer release, if the plugin's session-start hook recorded one.
+	update := internal.ReadUpdateNotice(version)
+
 	lines := internal.Render(internal.RenderContext{
 		Data:    &data,
 		Metrics: metrics,
@@ -63,6 +66,7 @@ func main() {
 		Usage:   usage,
 		Tools:   toolInfo,
 		Account: account,
+		Update:  update,
 		Config:  cfg,
 	})
 

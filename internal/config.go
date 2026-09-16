@@ -63,6 +63,14 @@ type FeatureToggles struct {
 	OutputStyle bool `json:"output_style"`
 	Repo        bool `json:"repo"`
 	AddedDirs   bool `json:"added_dirs"`
+
+	// HideUpdateNotice suppresses the "a newer Howl exists" badge.
+	//
+	// Inverted on purpose. mergeFeatures is additive — an override can only
+	// turn a flag on — so a toggle that defaults to on could never be turned
+	// off again. The notice defaults to shown because a notice nobody enabled
+	// tells nobody anything, and it costs no width until there is an update.
+	HideUpdateNotice bool `json:"hide_update_notice"`
 }
 
 var presets = map[string]FeatureToggles{
@@ -173,6 +181,9 @@ func mergeFeatures(base, override FeatureToggles) FeatureToggles {
 	}
 	if override.AddedDirs {
 		result.AddedDirs = true
+	}
+	if override.HideUpdateNotice {
+		result.HideUpdateNotice = true
 	}
 	return result
 }
