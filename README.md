@@ -105,6 +105,7 @@ Enable individually via `features` in `~/.claude/hud/config.json` or `/howl:cust
 - **output_style** — Names the active output style; the `default` style is skipped
 - **repo** — Repository from the `origin` remote (`owner/name`), parsed by Claude Code, so it costs no git subprocess
 - **added_dirs** — Count of extra directories added with `/add-dir` (`+2d`)
+- **hide_update_notice** — Opt **out** of the update badge described under [Updating](#updating-). Inverted because feature overrides can only turn things on, and this one is on by default: a notice nobody enabled tells nobody anything. Setting it also stops the daily version check
 
 ### Subagent Panel Rows 🧵
 
@@ -235,14 +236,50 @@ Restart Claude Code to activate the statusline. The HUD will appear at the botto
 
 ## Updating 🔄
 
-### If installed via Plugin (automatic)
+### If installed via Plugin
 
-The binary keeps itself in sync with the plugin — no manual step needed:
+**Turn on auto-update first — it is off by default.** Claude Code enables
+auto-update for its own marketplaces, not for third-party ones like this. Until
+you turn it on, the plugin stays on whatever version you installed:
 
-1. Claude Code auto-updates the **plugin** content from the marketplace (enable marketplace auto-update; third-party marketplaces are not auto-updated by default: `claude plugin marketplace update ai-screams-howl`).
-2. The plugin's `SessionStart` hook (`scripts/sync-binary.sh`) detects the new plugin version and re-downloads the matching **binary** in the background.
+```
+/plugin  →  Marketplaces  →  ai-screams-howl  →  Enable auto-update
+```
 
-It is a no-op (no network) when already in sync, only updates an existing install, and never blocks session start. To force an immediate update, re-run `/howl:setup`. Your configuration (`~/.claude/hud/config.json`) is always preserved.
+With it on, updates arrive on their own:
+
+1. Claude Code refreshes the plugin after session start, with a delay of up to ten minutes.
+2. The plugin's `SessionStart` hook notices the version changed and re-downloads the matching binary in the background.
+
+The hook is a no-op with no network when already in sync, only ever updates an
+existing install, and never blocks session start. Your configuration at
+`~/.claude/hud/config.json` is preserved across updates.
+
+To update immediately instead of waiting:
+
+```bash
+claude plugin marketplace update ai-screams-howl
+claude plugin update howl@ai-screams-howl
+```
+
+Or re-run `/howl:setup`, which downloads the latest release directly.
+
+#### You will be told when you are behind
+
+Claude Code has no "update available" indicator — its plugin list does not carry
+the notion — so Howl shows its own. The `SessionStart` hook asks GitHub for the
+latest release at most once a day, in the background, and the status line shows
+`↑1.11.0` on its first line when you are behind. The check never runs from the
+status line itself, which has to stay at roughly ten milliseconds.
+
+This matters most if you skipped the auto-update toggle: the badge is then the
+only thing that will ever tell you a new version exists.
+
+Set `hide_update_notice` to turn the badge off, which also stops the daily check:
+
+```json
+{ "features": { "hide_update_notice": true } }
+```
 
 ### If installed via Direct Download
 
