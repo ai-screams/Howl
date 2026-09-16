@@ -31,6 +31,8 @@ go test ./cmd/howl -run TestVersionFlag -v
 
 ## Architecture
 
+Some checkouts carry an untracked `AGENTS.md` tree covering the same directories at more length. It is excluded in `.git/info/exclude`, so it is per-clone and reaches nobody else — never treat it as the source of truth, and never assume a reader has it. Its copy of the preset table listed a removed metric and omitted four live toggles for months, which is the argument against a second copy of anything: when docs disagree, the code wins.
+
 ### Data Pipeline (main.go)
 
 ```
@@ -45,13 +47,14 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 
 - **types.go** — `StdinData` struct matching Claude Code's JSON schema, `ModelTier` classification
 - **metrics.go** — `Metrics` struct + `ComputeMetrics()`: context%, cache efficiency, API wait ratio, cost/min
-- **constants.go** — Default threshold values (danger 85%, warning 70%, moderate 50%, session cost $5/$1, cache 80/50%, API wait 60/35%, speed 60/30 tok/s, cost velocity $0.50/$0.10/min, quota 10/25/50/75%). All configurable via `config.go` Thresholds
-- **config.go** — `Config` + `FeatureToggles` + `Thresholds` (17 configurable color/behavior values) + 4 presets (full/minimal/developer/cost-focused). `LoadConfig()` reads `~/.claude/hud/config.json` with 4KB size guard. Features merge via `mergeFeatures(base, override)` — override can only enable, not disable. Thresholds merge via `mergeThresholds(base, override)` — only positive values override, validated via 3-step clamping
+- **constants.go** — Default threshold values (danger 85%, warning 70%, moderate 50%, session cost $5/$1, cache 80/50%, API wait 60/35%, cost velocity $0.50/$0.10/min, quota 10/25/50/75%). All 15 are configurable via `config.go` Thresholds
+- **config.go** — `Config` + `FeatureToggles` + `Thresholds` (15 configurable color/behavior values) + 4 presets (full/minimal/developer/cost-focused). `LoadConfig()` reads `~/.claude/hud/config.json` with 4KB size guard. Features merge via `mergeFeatures(base, override)` — override can only enable, not disable. Thresholds merge via `mergeThresholds(base, override)` — only positive values override, validated via 3-step clamping
 - **render.go** — `Render()` dispatches to `renderNormalMode` (2-4 lines) or `renderDangerMode` (2 dense lines) at configurable context threshold (default 85%). Line 2 supports priority ordering (max 5 metrics)
 - **git.go** — `GetGitInfo()`: branch + dirty via subprocess with 1s timeout
 - **usage.go** — `UsageFromRateLimits()`: converts the stdin `rate_limits` object into the render model. Pure function — no network, cache, or Keychain
 - **transcript.go** — `ParseTranscript()`: tail-reads last 64KB/100 lines of JSONL, extracts top-5 tools + running agents
 - **account.go** — `GetAccountInfo()`: reads `~/.claude.json` for email display
+- **update.go** — `ReadUpdateNotice()`: reads `~/.claude/hud/.update-available`, written by the plugin's session-start hook. Never fetches — the render path stays offline
 - **subagent.go** — `RenderSubagentRows()`: serves the `subagentStatusLine` setting via `howl --subagent`. Separate input schema (camelCase field names, unlike the main snake_case one); writes one `{"id","content"}` JSON line per agent-panel row it overrides
 
 ### Test Conventions
@@ -62,6 +65,7 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 - **fuzz_test.go** fuzzes `visibleLen`, `fitParts`, and `RenderSubagentRow` — the escape-sequence and truncation paths where byte/rune and index mistakes hide
 - **cmd/howl/main_test.go** does E2E binary execution: builds the binary, pipes JSON via `exec.Command`
 - **integration_test.go** tests the full JSON → Unmarshal → ComputeMetrics → Render pipeline
+- **Re-introduce the bug to prove a new test catches it.** Two regression tests here passed with their bug still present: one chose multi-byte inputs that were also long in runes, so a byte-vs-rune slice worked by accident (the trigger needs byte length over the bound and rune length under it); the other stripped ANSI before asserting, which erased the injected escape it was looking for.
 
 ## Commit Conventions
 
@@ -84,7 +88,9 @@ Two things this pipeline depends on, both easy to break:
 
 ## Pre-commit Hooks
 
-Active via `git config core.hooksPath .githooks`. Runs: go format, prettier (md/yaml), go mod tidy, golangci-lint. ~3.8s. Tests run in CI only.
+Active via `git config core.hooksPath .githooks`. Runs: go format, prettier (md/yaml), go mod tidy, golangci-lint. ~2s. Tests run in CI only.
+
+The hook exits before any check when prettier is not on `PATH` or in `$(go env GOPATH)/bin`, so no commit is possible at all. Run `make setup`.
 
 If prettier fails on SECURITY.md or CHANGELOG.md tables, run `make fmt-docs` to auto-fix.
 
@@ -94,6 +100,16 @@ If prettier fails on SECURITY.md or CHANGELOG.md tables, run `make fmt-docs` to 
 - **Pointer fields for optional metrics**: `Metrics` uses `*int` / `*float64` — nil means "not enough data to compute."
 - **Config merging**: `mergeFeatures(base, override)` is additive-only. Override `true` enables; `false` preserves base value. `mergeThresholds(base, override)` uses same pattern — only positive values override. No reflection — explicit per-field.
 - **NBSP output**: All spaces in final output are replaced with `\u00A0` (non-breaking space) because Claude Code strips regular spaces from statusline.
+- **Sanitize before rendering**: every externally-sourced string — `session_name`, `workspace.repo`, transcript tool and agent names, subagent task text, a directory basename — goes through `sanitizeText` before it reaches output. Unsanitized, a crafted value reached OSC 52 and wrote the terminal clipboard. `sanitize_test.go` fails any renderer that skips it.
+
+## Plugin Distribution
+
+The repo is both the marketplace (`.claude-plugin/marketplace.json`) and the plugin it serves. Two platform constraints shape the whole install flow:
+
+- **A plugin cannot set `statusLine`.** Only `agent` and `subagentStatusLine` are allowed in a plugin's own `settings.json`, which is why `/howl:setup` exists to write the user's settings. `subagentStatusLine` ships from the plugin and needs no setup.
+- **Auto-update is off by default for third-party marketplaces.** Without the `/plugin` → Marketplaces toggle, an install stays on its original version forever. The status line's own update badge exists to cover users who never find it.
+
+`scripts/sync-binary.sh` runs at SessionStart and must stay a no-op with no network when in sync. Preset contents live in `presets` in `internal/config.go` — doc copies of them drifted for months; read the source.
 
 ## CI/CD
 

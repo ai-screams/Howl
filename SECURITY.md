@@ -45,35 +45,47 @@ Howl receives JSON from stdin piped by Claude Code (trusted caller). All stdin f
 
 ### Subprocess Inventory
 
-| Command                                                                   | Purpose          | Timeout | Mitigation                                            |
-| ------------------------------------------------------------------------- | ---------------- | ------- | ----------------------------------------------------- |
-| `git rev-parse --abbrev-ref HEAD`                                         | Branch detection | 1s      | `exec.CommandContext` with args separation (no shell) |
-| `git status --porcelain --untracked-files=no`                             | Dirty status     | 1s      | `exec.CommandContext` with args separation (no shell) |
-| `/usr/bin/security find-generic-password -s "Claude Code-credentials" -w` | OAuth token read | 3s      | Absolute path, macOS only                             |
+| Command                                       | Purpose          | Timeout | Mitigation                                            |
+| --------------------------------------------- | ---------------- | ------- | ----------------------------------------------------- |
+| `git rev-parse --abbrev-ref HEAD`             | Branch detection | 1s      | `exec.CommandContext` with args separation (no shell) |
+| `git status --porcelain --untracked-files=no` | Dirty status     | 1s      | `exec.CommandContext` with args separation (no shell) |
 
 ### Credential Handling
 
-- OAuth token fetched from **macOS Keychain** via `/usr/bin/security` CLI (read-only)
-- Token held in **process memory only** — never written to disk, never logged
-- Sent over **HTTPS** to `api.anthropic.com/api/oauth/usage` with `Authorization: Bearer` header
-- Token lifetime bounded by process lifetime (no persistent caching of credentials)
+**The binary handles no credentials.** Quota comes from the `rate_limits` object
+Claude Code already puts on stdin, so there is no token to read, hold or send.
+
+Earlier versions read an OAuth token from the macOS Keychain and called
+`api.anthropic.com` for the same numbers. That path is gone: `internal/usage.go`
+is now a pure function over stdin, with no network, no cache and no Keychain.
 
 ### Network Egress
 
-Single outbound connection: `https://api.anthropic.com/api/oauth/usage`
+**The binary makes no network connections.** Nothing in `internal/` or
+`cmd/` imports `net/http`; the status line renders entirely from stdin, local
+config and the filesystem.
 
-- **Sent**: Authorization header only
-- **Not sent**: No telemetry, no analytics, no user data, no stdin content
-- **Received**: Usage quota percentages (5h/7d remaining)
+Two shell scripts do reach the network, and only these:
+
+| Script                   | Host                           | When                                        | Sends                             |
+| ------------------------ | ------------------------------ | ------------------------------------------- | --------------------------------- |
+| `scripts/install.sh`     | `api.github.com`, `github.com` | On `/howl:setup` or a plugin version change | Nothing beyond the request itself |
+| `scripts/sync-binary.sh` | `api.github.com`               | At most once a day, in the background       | Nothing beyond the request itself |
+
+Both are unauthenticated GETs against public release metadata. No telemetry, no
+analytics, no user data, no stdin content. `install.sh` verifies the SHA256 of
+what it downloads against the published `checksums.txt` and refuses to install
+on a mismatch. Setting `HOWL_NO_UPDATE_CHECK`, or `hide_update_notice` in
+config, stops the daily check.
 
 ### File System Access
 
-| Path                               | Operation  | Permissions         | Content                                                |
-| ---------------------------------- | ---------- | ------------------- | ------------------------------------------------------ |
-| `/tmp/howl-{sessionID}/usage.json` | Read/Write | 0700 dir, 0600 file | Usage percentages and timestamps only (no credentials) |
-| `~/.claude/hud/config.json`        | Read       | —                   | User config (4KB size limit enforced)                  |
-| `~/.claude.json`                   | Read       | —                   | Account info (email, display name)                     |
-| Transcript JSONL                   | Read       | —                   | Last 64KB only via tail optimization                   |
+| Path                              | Operation | Permissions | Content                                                                                                                     |
+| --------------------------------- | --------- | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `~/.claude/hud/.update-available` | Read      | —           | A version string, written by the session-start hook (parsed as untrusted: first line, 64-byte cap, must start with a digit) |
+| `~/.claude/hud/config.json`       | Read      | —           | User config (4KB size limit enforced)                                                                                       |
+| `~/.claude.json`                  | Read      | —           | Account info (email, display name)                                                                                          |
+| Transcript JSONL                  | Read      | —           | Last 64KB only via tail optimization                                                                                        |
 
 ### Supply Chain
 
@@ -90,10 +102,10 @@ Single outbound connection: `https://api.anthropic.com/api/oauth/usage`
 
 - Binary integrity and checksum verification
 - Install script (`scripts/install.sh`) injection risks
-- OAuth token read access via macOS Keychain (`security` CLI)
 - Stdin JSON input validation and size limits
-- Path traversal in cache directory (`/tmp/howl-*`) and transcript path
-- ANSI escape sequence injection via user-controlled strings (model name, git branch, agent name, tool names)
+- Transcript path handling (non-regular paths such as a FIFO are refused)
+- ANSI escape sequence injection via strings the user does not control (session name, repository name from the git remote, transcript tool and agent names, subagent task text, directory names) — all pass through `sanitizeText` before rendering
+- The update check: the release version it writes, and the file the status line reads it from
 - Config and account file parsing exploits (oversized files, malformed JSON)
 - Git subprocess working directory controlled via stdin JSON (`project_dir`/`cwd`)
 - CI/CD pipeline injection vectors (workflow commands, release integrity)
@@ -104,7 +116,7 @@ Single outbound connection: `https://api.anthropic.com/api/oauth/usage`
 - Claude Code itself (report to [Anthropic](https://anthropic.com/security))
 - Third-party dependencies (we use Go stdlib only — zero external deps)
 - User's local system security beyond Howl's file access
-- Man-in-the-middle attacks on HTTPS connections (mitigated by TLS)
+- Man-in-the-middle attacks on HTTPS connections (mitigated by TLS, and by checksum verification for downloaded binaries)
 
 ---
 

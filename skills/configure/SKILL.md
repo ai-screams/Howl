@@ -25,8 +25,8 @@ Help the user choose a display preset for their Howl statusline HUD.
    - Options (4):
      - Label: "full (default)" | Description: "Complete visibility - All metrics (2-4 lines)"
      - Label: "minimal" | Description: "Clean workspace - Model + Context + Cost + Duration only (1 line)"
-     - Label: "developer" | Description: "Coding focus - Add Account, Git, Changes, Cache, Vim (2 lines)"
-     - Label: "cost-focused" | Description: "Budget tracking - Add Quota, API Wait, Cost Velocity (2 lines)"
+     - Label: "developer" | Description: "Coding focus - full minus API wait, cost velocity and agent name (2 lines)"
+     - Label: "cost-focused" | Description: "Budget tracking - Account, Output tokens, Quota, API wait, Cost velocity (2 lines)"
 
 2. **Show a preview** of their chosen preset:
 

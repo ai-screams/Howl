@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -61,6 +63,38 @@ func FuzzRenderSubagentRow(f *testing.F) {
 		}
 		if width > 0 && got != "" && visibleLen(got) > width {
 			t.Fatalf("row %q is %d columns, over the %d budget", got, visibleLen(got), width)
+		}
+	})
+}
+
+// The update notice is written by a shell script and read on every render, so
+// whatever ends up in that file must never reach the terminal as an escape
+// sequence, and must never be shown unless it looks like a version.
+func FuzzReadUpdateNotice(f *testing.F) {
+	f.Add("1.11.0", "1.10.2")
+	f.Add("v1.11.0\n", "v1.10.2")
+	f.Add("", "1.10.2")
+	f.Add("\x1b]52;c;UFdORUQ=\x07", "1.10.2")
+	f.Add("curl: (6) could not resolve host", "1.10.2")
+	f.Fuzz(func(t *testing.T, content, current string) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, updateNoticeFile)
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Skip() // the fuzzer produced something the filesystem refused
+		}
+
+		got := readUpdateNoticeAt(path, current)
+		if got == nil {
+			return
+		}
+		if got.Version == "" {
+			t.Fatalf("returned a notice with an empty version from %q", content)
+		}
+		if c := got.Version[0]; c < '0' || c > '9' {
+			t.Fatalf("version %q does not start with a digit (from %q)", got.Version, content)
+		}
+		if err := onlyHowlsOwnEscapes(renderUpdateNotice(got)); err != "" {
+			t.Fatalf("%s — version %q from %q", err, got.Version, content)
 		}
 	})
 }

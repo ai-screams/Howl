@@ -198,6 +198,7 @@ type RenderContext struct {
 	Usage   *UsageData
 	Tools   *ToolInfo
 	Account *AccountInfo
+	Update  *UpdateNotice
 	Config  Config
 }
 

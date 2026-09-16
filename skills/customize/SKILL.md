@@ -37,64 +37,101 @@ Advanced configuration for Howl statusline: choose a base preset, toggle individ
 - **Header**: "Choose Base Preset"
 - **Options** (4):
   - Label: **"full (default)"**  
-    Description: "All 13 metrics - Complete visibility (2-4 lines)"
+    Description: "All 12 preset toggles - Complete visibility (2-4 lines)"
   - Label: **"minimal"**  
     Description: "Model + Context + Cost + Duration only (1 line)"
   - Label: **"developer"**  
-    Description: "Coding focus: Account, Git, Changes, Cache, Vim (2 lines)"
+    Description: "Coding focus: full minus API wait, cost velocity and agent name (2 lines)"
   - Label: **"cost-focused"**  
-    Description: "Budget tracking: Quota, API Wait, Cost Velocity (2 lines)"
+    Description: "Budget tracking: Account, Output tokens, Quota, API wait, Cost velocity (2 lines)"
 
 **Store the user's selection as `chosenPreset`.**
 
 ### Step 2: Toggle Individual Metrics
 
-**Use AskUserQuestion with multiSelect to show metric toggles:**
+There are 23 display toggles. `AskUserQuestion` allows at most four questions
+per call and four options per question, so ask in themed groups rather than one
+long list — a single 23-item checkbox is not something the tool can render.
 
-- **Question**: "Select which metrics to display (pre-checked = enabled in your preset)"
-- **Header**: "Customize Metrics"
-- **Options** (17 checkboxes):
-  1. **account** - Account email
-  2. **git** - Git branch + status
-  3. **line_changes** - Code additions/deletions
-  4. **quota** - Usage quota visualization
-  5. **tools** - Tool call counts
-  6. **agents** - Active agent indicators
-  7. **cache_efficiency** - Cache hit percentage
-  8. **api_wait_ratio** - API wait time ratio
-  9. **cost_velocity** - Cost per minute
-  10. **vim_mode** - Vim mode indicator
-  11. **agent_name** - Current agent name
-  12. **output_tokens** - Current-response output token count (`Out:1K`) _(default off)_
-  13. **effort** - Effort level indicator (`E:high`) _(default off)_
-  14. **thinking** - Extended thinking indicator (`Think`) _(default off)_
-  15. **session_name** - Truncated session name _(default off)_
-  16. **pull_request** - Linked PR status (`PR#1234 pending`) _(default off)_
-  17. **worktree** - Active git worktree (`wt:name`) _(default off)_
+Use `multiSelect: true` on every group, and pre-check what the chosen preset
+already enables.
+
+**First call — the four groups people change most:**
+
+| Group            | Options                                                    |
+| ---------------- | ---------------------------------------------------------- |
+| Workspace        | `git`, `repo`, `worktree`, `added_dirs`                    |
+| Session          | `account`, `session_name`, `vim_mode`, `output_style`      |
+| Cost and quota   | `quota`, `cost_velocity`, `api_wait_ratio`, `line_changes` |
+| Tools and agents | `tools`, `agents`, `agent_name`, `pull_request`            |
+
+**Second call — model and context:**
+
+| Group       | Options                            |
+| ----------- | ---------------------------------- |
+| Cache       | `cache_efficiency`, `prompt_cache` |
+| Model state | `effort`, `thinking`, `fast_mode`  |
+| Context     | `output_tokens`, `exceeds_200k`    |
+
+What each one shows:
+
+| Toggle             | Shows                                                                                                          | Default    |
+| ------------------ | -------------------------------------------------------------------------------------------------------------- | ---------- |
+| `account`          | Account email                                                                                                  | on in full |
+| `git`              | Git branch and dirty marker                                                                                    | on in full |
+| `line_changes`     | Lines added and removed                                                                                        | on in full |
+| `quota`            | 5h and 7d quota bars                                                                                           | on in full |
+| `tools`            | Top tool call counts                                                                                           | on in full |
+| `agents`           | Running agent names                                                                                            | on in full |
+| `cache_efficiency` | Cache hit rate of the **last API call** (`Cache:99%`)                                                          | on in full |
+| `api_wait_ratio`   | Share of session time spent waiting on the API                                                                 | on in full |
+| `cost_velocity`    | Cost per minute                                                                                                | on in full |
+| `vim_mode`         | Vim mode (`Insert`, `V-Line`, …)                                                                               | on in full |
+| `agent_name`       | Active agent (`@executor`)                                                                                     | on in full |
+| `output_tokens`    | Output tokens of the current response (`Out:1K`)                                                               | on in full |
+| `effort`           | Reasoning effort (`E:xhigh`)                                                                                   | off        |
+| `thinking`         | Extended thinking indicator (`Think`)                                                                          | off        |
+| `session_name`     | Session name, truncated                                                                                        | off        |
+| `pull_request`     | Linked PR or MR (`MR#23 approved`), clickable where supported                                                  | off        |
+| `worktree`         | Active worktree (`wt:name`)                                                                                    | off        |
+| `prompt_cache`     | **Session-wide** cache: hit ratio, time until the cache goes cold, rebuilds and their cause                    | off        |
+| `fast_mode`        | Fast mode indicator                                                                                            | off        |
+| `exceeds_200k`     | Warns past 200k tokens — a fixed threshold, so it can fire while the context bar still reads low on a 1M model | off        |
+| `output_style`     | Active output style, unless it is the default                                                                  | off        |
+| `repo`             | Repository from the origin remote (`owner/name`)                                                               | off        |
+| `added_dirs`       | Count of directories added with `/add-dir`                                                                     | off        |
+
+`cache_efficiency` and `prompt_cache` answer different questions — the last call
+versus the whole session — so neither replaces the other. Offer both.
 
 **Pre-check based on `chosenPreset`:**
 
-- **full**: All core metrics checked (new optional toggles effort/thinking/session_name/pull_request/worktree unchecked)
-- **minimal**: None checked
-- **developer**: account, git, line_changes, cache_efficiency, vim_mode
-- **cost-focused**: quota, api_wait_ratio, cost_velocity
+These are the exact sets in `internal/config.go`; read them there rather than
+trusting a summary.
 
-**Important: Features are Additive-Only**
+- **full** (12): account, git, line_changes, output_tokens, quota, tools, agents, cache_efficiency, api_wait_ratio, cost_velocity, vim_mode, agent_name
+- **minimal** (0): none
+- **developer** (9): account, git, line_changes, output_tokens, quota, tools, agents, cache_efficiency, vim_mode
+- **cost-focused** (5): account, output_tokens, quota, api_wait_ratio, cost_velocity
 
-- ✅ **Checking** a metric enables it (adds to preset)
-- ❌ **Unchecking** does NOT disable it (preset base is preserved)
-- To disable features from `full`, start with `minimal` and check only what you want
+**Features are additive-only.** Checking enables; unchecking does **not** disable,
+because `mergeFeatures` can only turn a flag on. To drop something the preset
+includes, start from `minimal` in Step 1 and check only what is wanted.
 
-**Example:**
+- Want `full` without git? Start from `minimal` and check everything except git.
+- Want `developer` plus quota? Start from `developer` and check quota.
 
-- Want `full` without git? → Use Step 1: `minimal`, Step 2: check all except git
-- Want `developer` + quota? → Use Step 1: `developer`, Step 2: check quota
+**The update badge is the exception.** `hide_update_notice` is an opt-**out**: it
+is on by default, and setting it to `true` turns the badge off. It exists in this
+inverted shape precisely because an additive merge could never switch off a
+default-on flag. Do not put it in the metric groups — offer it only if the user
+asks to stop seeing update notices, and explain that it also stops the daily
+version check.
 
-**Important Notes:**
+**Always displayed, not toggleable:** model badge, context bar, session cost, duration.
 
-- Model badge, context bar, cost, and duration are **always displayed** (cannot be toggled)
-- If user selects the same set as the preset base, omit `features` from config.json (cleaner)
-- If user changes any toggles, record differences in `features` object
+If the resulting selection matches the preset exactly, omit `features` from
+config.json entirely — a preset name alone is easier to read later.
 
 **Store selections as `selectedFeatures` array.**
 

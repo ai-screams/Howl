@@ -12,7 +12,7 @@
     {
       "name": "howl",
       "source": "./",
-      "description": "Your AI screams — Howl listens. 13 metrics, adaptive layouts, zero dependencies.",
+      "description": "Your AI screams — Howl listens. Adaptive layouts, per-metric control, zero dependencies.",
       "author": {
         "name": "AiScream"
       },

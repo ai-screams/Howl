@@ -72,6 +72,11 @@ func renderNormalMode(rc RenderContext) []string {
 		line1 = append(line1, costStr)
 	}
 	line1 = append(line1, renderDuration(d.Cost.TotalDurationMS))
+	if !cfg.Features.HideUpdateNotice {
+		if s := renderUpdateNotice(rc.Update); s != "" {
+			line1 = append(line1, s)
+		}
+	}
 
 	// Line 2: context bar | 5h quota bar | 7d quota bar (only when quota bars exist)
 	var line2 []string
@@ -683,6 +688,19 @@ func renderCacheMiss(pc *PromptCache) string {
 		s += " " + sanitizeText(pc.LastMissCause.Causes[0])
 	}
 	return s + Reset
+}
+
+// renderUpdateNotice announces a newer released Howl. It sits on the first
+// line because that is where it will actually be seen, and it costs nothing
+// until an update exists: with no notice the segment is absent entirely.
+//
+// Danger mode leaves it out — at 85% context the user has a more pressing
+// problem than a version number.
+func renderUpdateNotice(u *UpdateNotice) string {
+	if u == nil {
+		return ""
+	}
+	return boldYlw + "\u2191" + sanitizeText(u.Version) + Reset
 }
 
 // renderFastMode marks a session running in fast mode, using the same icon
