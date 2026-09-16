@@ -76,7 +76,11 @@ jobs:
           if git diff --cached --quiet; then
             echo "plugin.json already at ${VERSION_NUM}, skipping commit"
           else
-            git commit -m "chore: sync plugin.json to ${VERSION} [skip ci]"
+            # No [skip ci] here. GitHub evaluates skip directives against the
+            # head commit of a push, and the tag below points at this commit —
+            # marking it skip suppressed the tag push too, which is what
+            # release.yaml listens for.
+            git commit -m "chore: sync plugin.json to ${VERSION}"
           fi
 
       - name: Create and push tag
@@ -84,12 +88,8 @@ jobs:
         run: |
           git tag ${{ steps.version.outputs.next }}
           git push origin main
+          # Pushing the tag is what starts release.yaml, via its push:tags
+          # trigger. The App token makes that push count as the App rather than
+          # as Actions, so it is allowed to start another workflow.
           git push origin ${{ steps.version.outputs.next }}
-
-      - name: Trigger Release workflow
-        if: steps.check.outputs.needs_release == 'true'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          gh workflow run release.yaml -f tag=${{ steps.version.outputs.next }}
-          echo "Release workflow dispatched for ${{ steps.version.outputs.next }}"
+          echo "Pushed ${{ steps.version.outputs.next }}; release.yaml starts from the tag"

@@ -72,7 +72,14 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 - `docs:`, `chore:`, `test:`, `ci:`, `style:`, `refactor:` → no version bump
 - `chore(deps):` → no bump (Dependabot prefix)
 
-The auto-release pipeline: PR merge to main → svu calculates next version → syncs `.claude-plugin/plugin.json` version → creates git tag → dispatches Release workflow → GoReleaser builds 4 binaries. Direct pushes to main (docs, ci, chore) do **not** trigger version bumps.
+The auto-release pipeline: PR merge to main → svu calculates next version → syncs `.claude-plugin/plugin.json` version → pushes a git tag → release.yaml starts from its `push: tags` trigger → GoReleaser builds 4 binaries. Direct pushes to main (docs, ci, chore) do **not** trigger version bumps.
+
+Two things this pipeline depends on, both easy to break:
+
+- **The sync commit must not carry `[skip ci]`.** The tag points at it, and GitHub evaluates skip directives against the head commit of a push — marking it skip suppresses the tag push as well, so nothing starts release.yaml.
+- **svu reads the whole squash commit message, not just its subject.** A `fix:` or `feat:` line in the body of a `chore:`-titled squash still bumps the version. Keep conventional prefixes out of commit bodies unless the bump is intended.
+
+`workflow_dispatch` on release.yaml stays available for re-running a release by hand: `gh workflow run release.yaml -f tag=vX.Y.Z`.
 
 ## Pre-commit Hooks
 
