@@ -62,6 +62,7 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 - **fuzz_test.go** fuzzes `visibleLen`, `fitParts`, and `RenderSubagentRow` — the escape-sequence and truncation paths where byte/rune and index mistakes hide
 - **cmd/howl/main_test.go** does E2E binary execution: builds the binary, pipes JSON via `exec.Command`
 - **integration_test.go** tests the full JSON → Unmarshal → ComputeMetrics → Render pipeline
+- **Re-introduce the bug to prove a new test catches it.** Two regression tests here passed with their bug still present: one chose multi-byte inputs that were also long in runes, so a byte-vs-rune slice worked by accident (the trigger needs byte length over the bound and rune length under it); the other stripped ANSI before asserting, which erased the injected escape it was looking for.
 
 ## Commit Conventions
 
@@ -86,6 +87,8 @@ Two things this pipeline depends on, both easy to break:
 
 Active via `git config core.hooksPath .githooks`. Runs: go format, prettier (md/yaml), go mod tidy, golangci-lint. ~3.8s. Tests run in CI only.
 
+The hook exits before any check when prettier is not on `PATH` or in `$(go env GOPATH)/bin`, so no commit is possible at all. Run `make setup`.
+
 If prettier fails on SECURITY.md or CHANGELOG.md tables, run `make fmt-docs` to auto-fix.
 
 ## Key Patterns
@@ -94,6 +97,16 @@ If prettier fails on SECURITY.md or CHANGELOG.md tables, run `make fmt-docs` to 
 - **Pointer fields for optional metrics**: `Metrics` uses `*int` / `*float64` — nil means "not enough data to compute."
 - **Config merging**: `mergeFeatures(base, override)` is additive-only. Override `true` enables; `false` preserves base value. `mergeThresholds(base, override)` uses same pattern — only positive values override. No reflection — explicit per-field.
 - **NBSP output**: All spaces in final output are replaced with `\u00A0` (non-breaking space) because Claude Code strips regular spaces from statusline.
+- **Sanitize before rendering**: every externally-sourced string — `session_name`, `workspace.repo`, transcript tool and agent names, subagent task text, a directory basename — goes through `sanitizeText` before it reaches output. Unsanitized, a crafted value reached OSC 52 and wrote the terminal clipboard. `sanitize_test.go` fails any renderer that skips it.
+
+## Plugin Distribution
+
+The repo is both the marketplace (`.claude-plugin/marketplace.json`) and the plugin it serves. Two platform constraints shape the whole install flow:
+
+- **A plugin cannot set `statusLine`.** Only `agent` and `subagentStatusLine` are allowed in a plugin's own `settings.json`, which is why `/howl:setup` exists to write the user's settings. `subagentStatusLine` ships from the plugin and needs no setup.
+- **Auto-update is off by default for third-party marketplaces.** Without the `/plugin` → Marketplaces toggle, an install stays on its original version forever. The status line's own update badge exists to cover users who never find it.
+
+`scripts/sync-binary.sh` runs at SessionStart and must stay a no-op with no network when in sync. Preset contents live in `presets` in `internal/config.go` — doc copies of them drifted for months; read the source.
 
 ## CI/CD
 
