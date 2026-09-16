@@ -45,8 +45,8 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 
 - **types.go** — `StdinData` struct matching Claude Code's JSON schema, `ModelTier` classification
 - **metrics.go** — `Metrics` struct + `ComputeMetrics()`: context%, cache efficiency, API wait ratio, cost/min
-- **constants.go** — Default threshold values (danger 85%, warning 70%, moderate 50%, session cost $5/$1, cache 80/50%, API wait 60/35%, speed 60/30 tok/s, cost velocity $0.50/$0.10/min, quota 10/25/50/75%). All configurable via `config.go` Thresholds
-- **config.go** — `Config` + `FeatureToggles` + `Thresholds` (17 configurable color/behavior values) + 4 presets (full/minimal/developer/cost-focused). `LoadConfig()` reads `~/.claude/hud/config.json` with 4KB size guard. Features merge via `mergeFeatures(base, override)` — override can only enable, not disable. Thresholds merge via `mergeThresholds(base, override)` — only positive values override, validated via 3-step clamping
+- **constants.go** — Default threshold values (danger 85%, warning 70%, moderate 50%, session cost $5/$1, cache 80/50%, API wait 60/35%, cost velocity $0.50/$0.10/min, quota 10/25/50/75%). All 15 are configurable via `config.go` Thresholds
+- **config.go** — `Config` + `FeatureToggles` + `Thresholds` (15 configurable color/behavior values) + 4 presets (full/minimal/developer/cost-focused). `LoadConfig()` reads `~/.claude/hud/config.json` with 4KB size guard. Features merge via `mergeFeatures(base, override)` — override can only enable, not disable. Thresholds merge via `mergeThresholds(base, override)` — only positive values override, validated via 3-step clamping
 - **render.go** — `Render()` dispatches to `renderNormalMode` (2-4 lines) or `renderDangerMode` (2 dense lines) at configurable context threshold (default 85%). Line 2 supports priority ordering (max 5 metrics)
 - **git.go** — `GetGitInfo()`: branch + dirty via subprocess with 1s timeout
 - **usage.go** — `UsageFromRateLimits()`: converts the stdin `rate_limits` object into the render model. Pure function — no network, cache, or Keychain

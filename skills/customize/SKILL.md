@@ -88,7 +88,7 @@ What each one shows:
 | `cost_velocity`    | Cost per minute                                                                                                | on in full |
 | `vim_mode`         | Vim mode (`Insert`, `V-Line`, …)                                                                               | on in full |
 | `agent_name`       | Active agent (`@executor`)                                                                                     | on in full |
-| `output_tokens`    | Output tokens of the current response (`Out:1K`)                                                               | off        |
+| `output_tokens`    | Output tokens of the current response (`Out:1K`)                                                               | on in full |
 | `effort`           | Reasoning effort (`E:xhigh`)                                                                                   | off        |
 | `thinking`         | Extended thinking indicator (`Think`)                                                                          | off        |
 | `session_name`     | Session name, truncated                                                                                        | off        |
@@ -106,10 +106,13 @@ versus the whole session — so neither replaces the other. Offer both.
 
 **Pre-check based on `chosenPreset`:**
 
-- **full**: the eleven marked "on in full"; every toggle marked off stays unchecked
-- **minimal**: none
-- **developer**: account, git, line_changes, cache_efficiency, vim_mode
-- **cost-focused**: quota, api_wait_ratio, cost_velocity
+These are the exact sets in `internal/config.go`; read them there rather than
+trusting a summary.
+
+- **full** (12): account, git, line_changes, output_tokens, quota, tools, agents, cache_efficiency, api_wait_ratio, cost_velocity, vim_mode, agent_name
+- **minimal** (0): none
+- **developer** (9): account, git, line_changes, output_tokens, quota, tools, agents, cache_efficiency, vim_mode
+- **cost-focused** (5): account, output_tokens, quota, api_wait_ratio, cost_velocity
 
 **Features are additive-only.** Checking enables; unchecking does **not** disable,
 because `mergeFeatures` can only turn a flag on. To drop something the preset
