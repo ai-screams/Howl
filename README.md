@@ -215,7 +215,7 @@ Verify: `~/.claude/hud/howl --version`
 
 ### Method 3: Build from Source 🛠️
 
-Prerequisites: Go 1.24+, Claude Code CLI
+Prerequisites: Go 1.26+, Claude Code CLI
 
 ```bash
 git clone https://github.com/ai-screams/howl.git

@@ -31,7 +31,7 @@ go test ./cmd/howl -run TestVersionFlag -v
 
 ## Architecture
 
-A parallel `AGENTS.md` tree documents the same directories at more length. When the two disagree the code wins and both get fixed — a stale copy of the preset table in one of them went unnoticed for months.
+Some checkouts carry an untracked `AGENTS.md` tree covering the same directories at more length. It is excluded in `.git/info/exclude`, so it is per-clone and reaches nobody else — never treat it as the source of truth, and never assume a reader has it. Its copy of the preset table listed a removed metric and omitted four live toggles for months, which is the argument against a second copy of anything: when docs disagree, the code wins.
 
 ### Data Pipeline (main.go)
 

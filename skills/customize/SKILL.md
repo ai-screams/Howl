@@ -37,13 +37,13 @@ Advanced configuration for Howl statusline: choose a base preset, toggle individ
 - **Header**: "Choose Base Preset"
 - **Options** (4):
   - Label: **"full (default)"**  
-    Description: "All 13 metrics - Complete visibility (2-4 lines)"
+    Description: "All 12 preset toggles - Complete visibility (2-4 lines)"
   - Label: **"minimal"**  
     Description: "Model + Context + Cost + Duration only (1 line)"
   - Label: **"developer"**  
-    Description: "Coding focus: Account, Git, Changes, Cache, Vim (2 lines)"
+    Description: "Coding focus: full minus API wait, cost velocity and agent name (2 lines)"
   - Label: **"cost-focused"**  
-    Description: "Budget tracking: Quota, API Wait, Cost Velocity (2 lines)"
+    Description: "Budget tracking: Account, Output tokens, Quota, API wait, Cost velocity (2 lines)"
 
 **Store the user's selection as `chosenPreset`.**
 
