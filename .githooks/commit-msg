@@ -9,6 +9,30 @@ if echo "$commit_msg" | grep -q "^Merge "; then
     exit 0
 fi
 
+# Reject messages that would suppress CI.
+#
+# GitHub scans the WHOLE commit message for these markers, not just a trailer,
+# so merely quoting one while writing about it silences the push. That is how a
+# fix to the release pipeline skipped the very run meant to verify it: the
+# message explained the marker, and GitHub obeyed it.
+#
+# Backticks do not help. Write "skip-ci" or "the CI skip marker" in prose.
+if echo "$commit_msg" | grep -qiE '\[[[:space:]]*(skip[ _-]?ci|ci[ _-]?skip|no[ _-]?ci|skip[ _-]?actions|actions[ _-]?skip)[[:space:]]*\]|\*\*\*NO_CI\*\*\*'; then
+    echo ""
+    echo "❌ Commit message contains a marker that tells GitHub to skip CI."
+    echo ""
+    echo "GitHub reads these anywhere in the message, so even quoting one in an"
+    echo "explanation suppresses every workflow for the push — including the"
+    echo "release pipeline."
+    echo ""
+    echo "Writing about it? Use prose instead:"
+    echo "  the CI skip marker   /   skip-ci   /   a skip directive"
+    echo ""
+    echo "Actually need to suppress CI for this commit? git commit --no-verify"
+    echo ""
+    exit 1
+fi
+
 # Conventional Commits format: type(scope)?: description
 # Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build, revert
 if ! echo "$commit_msg" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?!?:'; then
