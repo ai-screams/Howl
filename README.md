@@ -1,4 +1,4 @@
-# Howl
+# <img src="assets/icon-64.png" width="32" height="32" alt=""> Howl
 
 > _"Your AI screams — Howl listens."_
 
@@ -613,6 +613,8 @@ Changes apply on the next refresh (~300ms) — no restart needed.
 
 ## Why Howl?
 
+<img src="assets/mascot-listening.png" width="208" align="right" alt="Howl's mascot, a pixel wraith wearing headphones">
+
 Howl was created to solve specific pain points with existing Claude Code statusline tools.
 
 ### Comparison
@@ -652,6 +654,8 @@ Howl was created to solve specific pain points with existing Claude Code statusl
 <a name="contributing"></a>
 
 ## Contributing 🤝
+
+<img src="assets/mascot-howling.png" width="256" align="right" alt="Howl's mascot howling three gauge bars">
 
 This is a personal tool for the AiScream project. Feedback and bug reports welcome!
 
