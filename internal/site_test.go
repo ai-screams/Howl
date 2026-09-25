@@ -54,40 +54,29 @@ func TestSiteConfigMatchesCode(t *testing.T) {
 }
 
 var (
-	linkTagRe = regexp.MustCompile(`<link\b[^>]*>`)
-	relRe     = regexp.MustCompile(`\brel="([^"]*)"`)
-	hrefRe    = regexp.MustCompile(`\bhref="([^"]*)"`)
-	remoteRes = []*regexp.Regexp{
-		regexp.MustCompile(`<script\b[^>]*\bsrc="https?://`),
-		regexp.MustCompile(`<img\b[^>]*\bsrc="https?://`),
-		regexp.MustCompile(`url\(\s*["']?https?://`),
-		regexp.MustCompile(`<(?:iframe|frame|embed|object|source|video|audio|track)\b[^>]*\b(?:src|data)="https?://`),
-		regexp.MustCompile(`@import\s+(?:url\()?["']?https?://`),
-	}
+	// Elements that may carry an absolute URL: outbound anchors, the canonical
+	// link, and the Open Graph metas. Everything else in the page must be
+	// relative, so once these are stripped no scheme may remain anywhere —
+	// not in an attribute of either quote style, not in CSS, not in script.
+	allowedAbsoluteRe  = regexp.MustCompile(`<a\b[^>]*>|<link\b[^>]*\brel="canonical"[^>]*>|<meta\b[^>]*\bproperty="og:[^>]*>`)
+	schemeRe           = regexp.MustCompile(`https?://`)
+	protocolRelativeRe = regexp.MustCompile(`["'(=]\s*//[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
 	// What fails this: add fetch('https://…'), new XMLHttpRequest(), new WebSocket(…),
 	// new EventSource(…), navigator.sendBeacon(…) or a dynamic import() to the page's script.
 	networkCallRe = regexp.MustCompile(`\bfetch\s*\(|XMLHttpRequest|WebSocket\s*\(|EventSource\s*\(|sendBeacon\s*\(|\bimport\s*\(`)
 )
 
-// What fails this: put the Google Fonts <link rel="stylesheet"> back, load a
-// script, image, frame or media file from any host, @import a remote
-// stylesheet, or add a fetch/XMLHttpRequest/WebSocket/EventSource/sendBeacon/
-// import() call to the script.
+// What fails this: a stylesheet, script, image, font, frame, media file,
+// srcset, poster, @import or static module import that names another host
+// (either quote style, or protocol-relative), or a fetch/XMLHttpRequest/
+// WebSocket/EventSource/sendBeacon/import() call in the script.
 func TestSiteHasNoExternalRequests(t *testing.T) {
 	html := readSite(t)
-	for _, tag := range linkTagRe.FindAllString(html, -1) {
-		rel, href := relRe.FindStringSubmatch(tag), hrefRe.FindStringSubmatch(tag)
-		if rel == nil || href == nil || rel[1] == "canonical" {
-			continue
-		}
-		if strings.HasPrefix(href[1], "http://") || strings.HasPrefix(href[1], "https://") {
-			t.Errorf("external %s: %s", rel[1], tag)
-		}
-	}
-	for _, re := range remoteRes {
-		if loc := re.FindStringIndex(html); loc != nil {
-			end := min(loc[1]+60, len(html))
-			t.Errorf("external request: %q", html[loc[0]:end])
+	rest := allowedAbsoluteRe.ReplaceAllString(html, "")
+	for _, re := range []*regexp.Regexp{schemeRe, protocolRelativeRe} {
+		if loc := re.FindStringIndex(rest); loc != nil {
+			end := min(loc[1]+60, len(rest))
+			t.Errorf("absolute URL outside an anchor, the canonical link or an og: meta: %q", rest[loc[0]:end])
 		}
 	}
 	if loc := networkCallRe.FindStringIndex(html); loc != nil {

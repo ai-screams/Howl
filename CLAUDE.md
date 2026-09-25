@@ -117,7 +117,7 @@ The repo is both the marketplace (`.claude-plugin/marketplace.json`) and the plu
 
 `site/` is the product page at https://ai-scream.ai/Howl/ — one static `index.html` with inline CSS/JS and self-hosted fonts, no build step. `pages.yaml` deploys it on pushes to `main` that touch `site/**`. The path is case-sensitive: spell it `Howl`.
 
-The hero's HUD demo is a JavaScript copy of `renderNormalMode`/`renderDangerMode`. Its preset toggles and thresholds sit in the page's `howl-config` JSON block, and `internal/site_test.go` fails when that block differs from `config.go`, when the page loads a stylesheet, script, image, font, frame or media file from another host or its script calls `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon` or `import()`, or when a local link is broken. A change to which segments a line carries is not caught by the test — mirror it in `site/index.html` by hand.
+The hero's HUD demo is a JavaScript copy of `renderNormalMode`/`renderDangerMode`. Its preset toggles and thresholds sit in the page's `howl-config` JSON block, and `internal/site_test.go` fails when that block differs from `config.go`, when any `http://`, `https://` or `//host` appears outside an outbound `<a>`, the canonical link or an `og:` meta (so no remote stylesheet, script, image, font, frame, media file or `@import` can slip in), when its script calls `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon` or `import()`, or when a local link is broken. A change to which segments a line carries is not caught by the test — mirror it in `site/index.html` by hand.
 
 ## CI/CD
 
