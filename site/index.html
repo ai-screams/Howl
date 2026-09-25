@@ -291,12 +291,12 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
   document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
   render();
   if(!reduce)setInterval(()=>{
-    pct+=0.5;cost+=0.05;mins+=1;
+    pct+=1;cost+=0.1;mins+=2;
     if(mode==='auto'&&pct>93){pct=41;cost=185.4;mins=5472;}
     if(mode==='normal'&&pct>=T.context_danger-1){pct=41;}
     if(mode==='danger'&&pct>96){pct=86;}
     render();
-  },350);
+  },700);
 
   document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',()=>{
     const src=document.getElementById(b.dataset.copy),t=src.innerText;
