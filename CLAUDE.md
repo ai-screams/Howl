@@ -96,6 +96,8 @@ The hook exits before any check when golangci-lint or prettier is missing from b
 
 If prettier fails on SECURITY.md or CHANGELOG.md tables, run `make fmt-docs` to auto-fix.
 
+prettier (go-prettier) skips paths listed in `.git/info/exclude`, so an excluded directory is never format-checked. Before un-excluding one, run `make fmt-docs` and commit the formatting on its own; a fenced block labelled `bash` gets its literal output reflowed, so label command output `text`.
+
 ## Key Patterns
 
 - **Nil-return = skip**: All optional data sources (git, usage, transcript, account) return nil on failure. Render checks nil before including.
@@ -103,6 +105,8 @@ If prettier fails on SECURITY.md or CHANGELOG.md tables, run `make fmt-docs` to 
 - **Config merging**: `mergeFeatures(base, override)` is additive-only. Override `true` enables; `false` preserves base value. `mergeThresholds(base, override)` uses same pattern — only positive values override. No reflection — explicit per-field.
 - **NBSP output**: All spaces in final output are replaced with `\u00A0` (non-breaking space) because Claude Code strips regular spaces from statusline.
 - **Sanitize before rendering**: every externally-sourced string — `session_name`, `workspace.repo`, transcript tool and agent names, subagent task text, a directory basename — goes through `sanitizeText` before it reaches output. Unsanitized, a crafted value reached OSC 52 and wrote the terminal clipboard. `sanitize_test.go` fails any renderer that skips it.
+- **Line counts and timing**: `renderNormalMode` always appends the Claude Code version to line 3, so `minimal` renders two lines, `cost-focused` up to three, `full`/`developer` up to four; `renderDangerMode` ignores presets. 300 ms is Claude Code's debounce, not a refresh rate — an idle session waits for `refreshInterval`, which `scripts/install.sh` writes as 10 only when none exists. Docs must not promise "changes apply in ~300ms".
+- **OSC 8 ends with BEL**: `osc8Link` terminates hyperlinks with `\a`, not `ESC \`; anything that parses Howl's output must accept both.
 
 ## Plugin Distribution
 
@@ -115,9 +119,17 @@ The repo is both the marketplace (`.claude-plugin/marketplace.json`) and the plu
 
 ## Product Page
 
-`site/` is the product page at https://ai-scream.ai/Howl/ — one static `index.html` with inline CSS/JS and self-hosted fonts, no build step. `pages.yaml` deploys it on pushes to `main` that touch `site/**`. The path is case-sensitive: spell it `Howl`.
+`site/` is the product page at https://ai-scream.ai/Howl/ — one static `index.html` with inline CSS/JS and self-hosted fonts, no build step. Its favicons and OG image come from `scripts/brand/build-icons.py` (see Brand Assets); the HUD demo's grey is lighter than the terminal's for 4.5:1 contrast. `pages.yaml` deploys it on pushes to `main` that touch `site/**`. The path is case-sensitive: spell it `Howl`.
 
 The hero's HUD demo is a JavaScript copy of `renderNormalMode`/`renderDangerMode`. Its preset toggles and thresholds sit in the page's `howl-config` JSON block, and `internal/site_test.go` fails when that block differs from `config.go`, when any `http://`, `https://` or `//host` appears outside an outbound `<a>`, the canonical link or an `og:` meta (so no remote stylesheet, script, image, font, frame, media file or `@import` can slip in), when its script calls `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon` or `import()`, or when a local link is broken. A change to which segments a line carries is not caught by the test — mirror it in `site/index.html` by hand.
+
+## Brand Assets
+
+Every image is generated; edit the source and rerun, never the PNGs. Both scripts need Pillow and the JetBrains Mono TTFs from the JetBrains release zip. `docs/brand.md` is the public guide.
+
+- `python3 scripts/brand/build-icons.py [--og FONT_DIR]` — the icon, mascots, favicons and (with `--og`) `site/assets/og.png` from the pixel maps in that file. Sizes are integer multiples of the 16-cell grid; the touch icon is an opaque 180 px square because iOS masks it itself.
+- `python3 scripts/brand/render-statusline.py --howl build/howl --fonts FONT_DIR` — `assets/normal.png` and `danger.png` from the real binary, run in a temporary HOME (account `commander@ai-scream.ai`) and a temporary repo so nothing personal lands in the images. Paste its printed text into the README's accessibility blocks.
+- README: no hand-maintained counts or sizes (the old badges and "17 metrics" drifted for months), and a right-floated `<img align="right">` needs `<br clear="all">` at the end of its section or the next heading wraps around it.
 
 ## CI/CD
 
@@ -129,3 +141,4 @@ The hero's HUD demo is a JavaScript copy of `renderNormalMode`/`renderDangerMode
 - **auto-release.yaml** and **release.yaml** have **separate concurrency groups** (`auto-release` vs `release`) — this is critical. Sharing a group causes the tag-triggered Release to be skipped.
 - **release-build.yaml** runs GoReleaser v2; `release.yaml` calls it with `secrets: inherit` to pass `GITHUB_TOKEN`.
 - Auto-release uses a GitHub App token (not GITHUB_TOKEN) because Actions tokens can't trigger other workflows.
+- CodeQL default setup picks up languages on its own: adding `scripts/brand/*.py` added an `Analyze (python)` check to every PR. A new language means a new required check.
