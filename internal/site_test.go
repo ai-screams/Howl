@@ -61,11 +61,18 @@ var (
 		regexp.MustCompile(`<script\b[^>]*\bsrc="https?://`),
 		regexp.MustCompile(`<img\b[^>]*\bsrc="https?://`),
 		regexp.MustCompile(`url\(\s*["']?https?://`),
+		regexp.MustCompile(`<(?:iframe|frame|embed|object|source|video|audio|track)\b[^>]*\b(?:src|data)="https?://`),
+		regexp.MustCompile(`@import\s+(?:url\()?["']?https?://`),
 	}
+	// What fails this: add fetch('https://…'), new XMLHttpRequest(), new WebSocket(…),
+	// new EventSource(…), navigator.sendBeacon(…) or a dynamic import() to the page's script.
+	networkCallRe = regexp.MustCompile(`\bfetch\s*\(|XMLHttpRequest|WebSocket\s*\(|EventSource\s*\(|sendBeacon\s*\(|\bimport\s*\(`)
 )
 
-// What fails this: put the Google Fonts <link rel="stylesheet"> back, or load
-// a script or image from any host.
+// What fails this: put the Google Fonts <link rel="stylesheet"> back, load a
+// script, image, frame or media file from any host, @import a remote
+// stylesheet, or add a fetch/XMLHttpRequest/WebSocket/EventSource/sendBeacon/
+// import() call to the script.
 func TestSiteHasNoExternalRequests(t *testing.T) {
 	html := readSite(t)
 	for _, tag := range linkTagRe.FindAllString(html, -1) {
@@ -82,6 +89,10 @@ func TestSiteHasNoExternalRequests(t *testing.T) {
 			end := min(loc[1]+60, len(html))
 			t.Errorf("external request: %q", html[loc[0]:end])
 		}
+	}
+	if loc := networkCallRe.FindStringIndex(html); loc != nil {
+		end := min(loc[1]+60, len(html))
+		t.Errorf("network call in site/index.html: %q", html[loc[0]:end])
 	}
 }
 
