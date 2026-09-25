@@ -59,8 +59,8 @@ var (
 	// relative, so once these are stripped no scheme may remain anywhere —
 	// not in an attribute of either quote style, not in CSS, not in script.
 	allowedAbsoluteRe  = regexp.MustCompile(`<a\b[^>]*>|<link\b[^>]*\brel="canonical"[^>]*>|<meta\b[^>]*\bproperty="og:[^>]*>`)
-	schemeRe           = regexp.MustCompile(`https?://`)
-	protocolRelativeRe = regexp.MustCompile(`["'(=]\s*//[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
+	schemeRe           = regexp.MustCompile(`(?i)https?://`)
+	protocolRelativeRe = regexp.MustCompile(`//[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
 	// What fails this: add fetch('https://…'), new XMLHttpRequest(), new WebSocket(…),
 	// new EventSource(…), navigator.sendBeacon(…) or a dynamic import() to the page's script.
 	networkCallRe = regexp.MustCompile(`\bfetch\s*\(|XMLHttpRequest|WebSocket\s*\(|EventSource\s*\(|sendBeacon\s*\(|\bimport\s*\(`)
