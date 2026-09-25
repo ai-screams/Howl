@@ -33,63 +33,62 @@
 }
 *{box-sizing:border-box}
 html{background:var(--bg)}
-body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--body);padding-inline:clamp(16px,4vw,48px);overflow-x:hidden}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--body);padding-inline:clamp(16px,4vw,48px)}
 a{color:inherit}
+a:focus-visible,button:focus-visible{outline:2px solid var(--lime);outline-offset:3px}
 .wrap{max-width:1040px;margin:0 auto;position:relative}
-.moon{position:absolute;left:50%;top:-140px;width:720px;height:720px;max-width:100vw;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle at 50% 40%,rgba(195,238,124,.16),rgba(200,103,145,.09) 45%,transparent 70%);pointer-events:none;filter:blur(6px)}
-nav{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:22px;font-size:14px}
-.mark{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.01em;text-decoration:none}
+nav{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:24px;font-size:14px}
+.mark{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.01em;text-decoration:none}
 .mark svg{display:block}
-nav ul{display:flex;gap:6px;list-style:none;margin:0;padding:0}
-nav ul a{text-decoration:none;color:var(--muted);padding:8px 12px;border-radius:999px}
-nav ul a:hover,nav ul a:focus-visible{background:var(--card);color:var(--text);outline:none}
-.hero{position:relative;text-align:center;padding-block:56px 40px;display:grid;gap:22px;justify-items:center}
-.pill{display:inline-flex;gap:8px;align-items:center;font-size:13px;color:var(--lime);background:rgba(195,238,124,.10);border:1px solid rgba(195,238,124,.25);border-radius:999px;padding:6px 14px}
-h1{font-family:var(--display);font-weight:800;font-size:clamp(42px,7.5vw,88px);line-height:1;letter-spacing:-.03em;margin:0;text-wrap:balance;max-width:12ch}
-h1 span{background:linear-gradient(90deg,var(--lime),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
-.lead{max-width:58ch;color:var(--muted);font-size:19px;margin:0}
+nav ul{display:flex;gap:8px;list-style:none;margin:0;padding:0}
+nav ul a{text-decoration:none;color:var(--muted);padding:8px 12px;border-radius:8px}
+nav ul a:hover{background:var(--card);color:var(--text)}
+.hero{position:relative;text-align:center;padding-block:56px 40px;display:grid;gap:24px;justify-items:center}
+.meta{margin:0;font:14px var(--mono);letter-spacing:.08em;color:var(--muted)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(48px,7.5vw,88px);line-height:1;letter-spacing:-.03em;margin:0;text-wrap:balance;max-width:12ch}
+h1 span{color:var(--lime)}
+.lead{max-width:58ch;color:var(--muted);font-size:20px;margin:0}
 .cta{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
-.btn{font:600 15px var(--body);border-radius:12px;padding:13px 22px;text-decoration:none;cursor:pointer;border:1px solid transparent}
+.btn{font:600 16px var(--body);border-radius:8px;padding:12px 24px;text-decoration:none;cursor:pointer;border:1px solid transparent}
 .btn-p{background:var(--lime);color:#1c1e2b}
-.btn-p:hover,.btn-p:focus-visible{background:#d9f7a0;outline:none}
+.btn-p:hover{background:#d9f7a0}
 .btn-s{background:var(--card);color:var(--text);border-color:var(--rule)}
-.btn-s:hover,.btn-s:focus-visible{border-color:var(--muted);outline:none}
+.btn-s:hover{border-color:var(--muted)}
 
-.hud-frame{width:100%;border:1px solid var(--rule);border-radius:16px;background:#2f3245;box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03) inset;overflow:hidden;text-align:left}
-.hud-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px 16px;padding:10px 14px;background:#272a3b;border-bottom:1px solid #3b3f55}
-.dots{display:flex;gap:6px}.dots i{width:10px;height:10px;border-radius:50%;background:#4a4e66;display:block}
+.hud-frame{width:100%;border:1px solid var(--rule);border-radius:12px;background:#2f3245;box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03) inset;overflow:hidden;text-align:left}
+.hud-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:12px 16px;background:#272a3b;border-bottom:1px solid #3b3f55}
+.dots{display:flex;gap:8px}.dots i{width:10px;height:10px;border-radius:50%;background:#4a4e66;display:block}
 .tabs{display:flex;flex-wrap:wrap;gap:4px}
-.tabs button,.seg button{font:600 12px var(--body);color:#aeb3c7;background:transparent;border:0;border-radius:8px;padding:6px 10px;cursor:pointer}
+.tabs button,.seg button{font:600 14px var(--body);color:#aeb3c7;background:transparent;border:0;border-radius:8px;padding:8px 12px;min-height:36px;cursor:pointer}
 .tabs button:hover,.seg button:hover{color:var(--text);background:#3b3f55}
-.tabs button:focus-visible,.seg button:focus-visible{outline:2px solid var(--lime);outline-offset:1px}
 .tabs button[aria-pressed="true"]{background:#3b3f55;color:var(--text)}
-.seg{display:flex;gap:2px;background:#1f2231;border-radius:10px;padding:2px}
+.seg{display:flex;gap:2px;background:#1f2231;border-radius:8px;padding:2px}
 .seg button[aria-pressed="true"]{background:var(--lime);color:#1c1e2b}
 .seg button[disabled]{opacity:.35;cursor:default}
-.hud{color:#d8dbe6;font:14px/1.75 var(--mono);padding:14px 16px;overflow-x:auto;white-space:pre;font-variant-numeric:tabular-nums;margin:0;min-height:calc(14px*1.75*4 + 28px)}
+.hud{color:#d8dbe6;font:14px/1.75 var(--mono);padding:16px;overflow-x:auto;white-space:pre;font-variant-numeric:tabular-nums;margin:0;min-height:calc(14px*1.75*4 + 32px)}
 .hud .sep{color:#5b5d67}.hud .grey{color:#a3a7b8}.hud .dim{color:#979bad}.hud .gold{color:#e8c66a}.hud .lime{color:#c3ee7c}.hud .pink{color:#c86791}.hud .orange{color:#ff8700}.hud .blue{color:#7ba4e8}.hud .cyan{color:#6ccbd9}.hud .b{font-weight:700}
-.hud-foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;padding:8px 16px;border-top:1px solid #3b3f55;font:12px var(--mono);color:#a3a7b8}
+.hud-foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;padding:8px 16px;border-top:1px solid #3b3f55;font:14px var(--mono);color:#a3a7b8}
 
-.install{width:100%;max-width:640px;display:grid;grid-template-columns:1fr auto;border:1px solid var(--rule);border-radius:14px;background:var(--card);overflow:hidden;text-align:left}
-.install pre{margin:0;padding:14px 18px;font:14px/1.7 var(--mono);overflow-x:auto}
+.install{width:100%;max-width:640px;display:grid;grid-template-columns:1fr auto;border:1px solid var(--rule);border-radius:12px;background:var(--card);overflow:hidden;text-align:left}
+.install pre{margin:0;padding:16px;font:14px/1.7 var(--mono);overflow-x:auto}
 .install pre b{color:var(--lime);font-weight:400}
-.install button{font:600 13px var(--body);background:var(--card2);color:var(--text);border:0;border-left:1px solid var(--rule);padding:0 18px;cursor:pointer}
-.install button:hover,.install button:focus-visible{background:#3b3f55;outline:none}
+.install button{font:600 14px var(--body);background:var(--card2);color:var(--text);border:0;border-left:1px solid var(--rule);padding:0 16px;cursor:pointer}
+.install button:hover{background:#3b3f55}
 section{position:relative;padding-block:56px}
-h2{font-family:var(--display);font-weight:700;font-size:clamp(28px,4vw,44px);line-height:1.05;letter-spacing:-.02em;margin:0 0 10px;text-align:center;text-wrap:balance}
-.sub{color:var(--muted);margin:0 auto 32px;max-width:60ch;text-align:center}
+h2{font-family:var(--display);font-weight:700;font-size:clamp(32px,4vw,48px);line-height:1.05;letter-spacing:-.02em;margin:0 0 12px;text-align:left;max-width:24ch;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 32px;max-width:60ch;text-align:left}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
-.card{background:var(--card);border:1px solid var(--rule);border-radius:16px;padding:22px;display:grid;gap:10px;align-content:start}
-.card .seg-ex{font-family:var(--mono);font-size:13px;background:#2f3245;border-radius:8px;padding:8px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#d8dbe6}
+.card{background:transparent;border:0;border-top:2px solid var(--rule);border-radius:0;padding:16px 0 0;display:grid;gap:8px;align-content:start}
+.card .seg-ex{font-family:var(--mono);font-size:14px;background:#2f3245;border-radius:4px;padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#d8dbe6}
 .card h3{font-family:var(--display);font-weight:700;font-size:20px;margin:4px 0 0}
-.card p{margin:0;color:var(--muted);font-size:15px}
-.presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
-.preset{background:var(--card);border:1px solid var(--rule);border-radius:14px;padding:18px;text-align:left;cursor:pointer;color:inherit;font:inherit}
-.preset:hover,.preset:focus-visible{border-color:var(--lime);outline:none}
+.card p{margin:0;color:var(--muted);font-size:16px}
+.presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.preset{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:16px;text-align:left;cursor:pointer;color:inherit;font:inherit}
+.preset:hover{border-color:var(--lime)}
 .preset code{font-family:var(--mono);font-size:14px;color:var(--gold)}
-.preset p{margin:6px 0 0;color:var(--muted);font-size:14px}
-.sponsor{display:grid;justify-items:center;gap:12px;text-align:center;background:linear-gradient(180deg,var(--card),var(--bg));border:1px solid var(--rule);border-radius:20px;padding:36px 20px}
-footer{padding-block:28px 40px;border-top:1px solid var(--rule);display:flex;flex-wrap:wrap;gap:8px 28px;justify-content:space-between;font-size:13px;color:var(--muted)}
+.preset p{margin:8px 0 0;color:var(--muted);font-size:14px}
+.support{margin:0;padding-block:24px 0;color:var(--muted);font-size:14px;max-width:60ch}
+footer{padding-block:32px 40px;border-top:1px solid var(--rule);display:flex;flex-wrap:wrap;gap:8px 32px;justify-content:space-between;font-size:14px;color:var(--muted)}
 footer a{text-decoration:none}footer a:hover{color:var(--text)}
 @media (max-width:560px){.install{grid-template-columns:1fr}.install button{padding:12px;border-left:0;border-top:1px solid var(--rule)}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -97,14 +96,13 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
 </head>
 <body>
 <div class="wrap">
-<div class="moon" aria-hidden="true"></div>
 <nav>
   <a class="mark" href="#top" aria-label="Howl"><svg width="26" height="20" viewBox="0 0 26 20" aria-hidden="true"><g fill="#c3ee7c"><rect x="0" y="8" width="3" height="4"/><rect x="5" y="4" width="3" height="12"/><rect x="10" y="0" width="3" height="20"/><rect x="15" y="4" width="3" height="12"/><rect x="20" y="8" width="3" height="4"/></g></svg>Howl</a>
   <ul><li><a href="#features">Features</a></li><li><a href="#install">Install</a></li><li><a href="https://github.com/ai-screams/howl">GitHub</a></li></ul>
 </nav>
 
 <header class="hero" id="top">
-  <span class="pill">Statusline HUD for Claude Code · Go · ~10ms</span>
+  <p class="meta">STATUSLINE HUD FOR CLAUDE CODE · GO · ~10MS</p>
   <h1>Your AI screams. <span>Howl</span> listens.</h1>
   <p class="lead">Context, quota, cache and cost in the status line. Read from stdin, computed in Go, rendered before you notice. No network calls, no dependencies.</p>
   <div class="cta"><a class="btn btn-p" href="#install">Install the plugin</a><a class="btn btn-s" href="https://github.com/ai-screams/howl/releases/latest">Download binary</a></div>
@@ -125,7 +123,7 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
         <button type="button" data-mode="danger" aria-pressed="false">Danger</button>
       </div>
     </div>
-    <pre class="hud" id="hud-lines"><span class="gold b">[Opus 4.6]</span><span class="sep"> | </span><span class="grey">hanyul.ryu@gmail.com</span><span class="sep"> | </span><span class="pink">main*</span><span class="sep"> | </span><span class="grey">Out:1K</span><span class="sep"> | </span><span class="pink b">$185.4</span><span class="sep"> | </span>91h12m
+    <pre class="hud" id="hud-lines"><span class="gold b">[Opus 4.6]</span><span class="sep"> | </span><span class="grey">commander@ai-scream.ai</span><span class="sep"> | </span><span class="pink">main*</span><span class="sep"> | </span><span class="grey">Out:1K</span><span class="sep"> | </span><span class="pink b">$185.4</span><span class="sep"> | </span>91h12m
 <span class="lime">████░░░░░░</span>  41% ( 82K/200K)<span class="sep"> | </span><span class="lime">█████████░</span>  94% (4h37m/5h)<span class="sep"> | </span><span class="lime">███████░░░</span>  79% (2d21h/7d)
 <span class="grey">Δ</span><span class="lime">+3.4K</span>/<span class="pink">-1.3K</span><span class="sep"> | </span><span class="grey">Cache:</span><span class="lime">99%</span><span class="grey">(W:0K/R:82K)</span><span class="sep"> | </span><span class="grey">Wait:</span><span class="lime">6%</span><span class="sep"> | </span><span class="grey">Cost:</span><span class="lime">$0.03/m</span><span class="sep"> | </span><span class="lime">Insert</span><span class="sep"> | </span><span class="grey">v2.1.39</span>
 <span class="blue">Bash</span>(5) <span class="blue">Edit</span>(1) <span class="blue">Read</span>(3)<span class="sep"> | </span><span class="gold">▶</span><span class="cyan">explore</span></pre>
@@ -134,7 +132,7 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
 </header>
 
 <section id="features">
-  <h2>Everything a session needs to say</h2>
+  <h2>Context, quota, cache and cost at a glance</h2>
   <p class="sub">Every segment is one metric with its own color thresholds. Turn any of them off.</p>
   <div class="grid">
     <div class="card"><div class="seg-ex"><span style="color:#ff8700">████████░░</span> 71% <span style="color:#a3a7b8">(142K/200K)</span></div><h3>Context health</h3><p>A ten-character bar with absolute tokens, not just a percentage. Formats as K or M, so a 1M window reads the same way.</p></div>
@@ -155,8 +153,8 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
   </div>
 </section>
 
-<section id="install" style="display:grid;justify-items:center">
-  <h2>Up in one session</h2>
+<section id="install">
+  <h2>Install from Claude Code</h2>
   <p class="sub">Howl ships as a Claude Code plugin from its own marketplace. Setup downloads the binary for your OS and writes the status line setting for you.</p>
   <div class="install">
     <pre id="cmd-install"><b>/plugin</b> marketplace add ai-screams/howl
@@ -166,13 +164,7 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
   </div>
 </section>
 
-<section>
-  <div class="sponsor">
-    <h2 style="font-size:26px">Keep Howl listening</h2>
-    <p class="sub" style="margin:0">Howl is free and MIT licensed. If it earns a place in your terminal, a sponsorship helps it stay maintained.</p>
-    <a class="btn btn-s" href="https://github.com/sponsors/ai-screams">Sponsor on GitHub</a>
-  </div>
-</section>
+<p class="support">Howl is free and MIT licensed. If it earns a place in your terminal, <a href="https://github.com/sponsors/ai-screams">sponsoring on GitHub</a> helps keep it maintained.</p>
 
 <footer>
   <span>An <a href="https://ai-scream.ai">Ai-Scream</a> project · MIT</span>
@@ -217,7 +209,7 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
   const dur=m=>m<1?span('grey','<1m'):m<60?m+'m':Math.floor(m/60)+'h'+(m%60)+'m';
 
   // Sample session. Only pct, cost and minutes move.
-  const D={model:'Opus 4.6',ctx:200000,email:'hanyul.ryu@gmail.com',branch:'main',dirty:true,project:'Howl',
+  const D={model:'Opus 4.6',ctx:200000,email:'commander@ai-scream.ai',branch:'main',dirty:true,project:'Howl',
     added:3412,removed:1287,cacheW:0,wait:6,vel:0.03,out:1000,vim:'Insert',version:'2.1.39',
     q5:{remain:94,until:'4h37m'},q7:{remain:79,until:'2d21h'},tools:[['Bash',5],['Edit',1],['Read',3]],agents:['explore']};
   let pct=41,cost=185.4,mins=5472,preset='full',mode='auto';
