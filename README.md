@@ -655,7 +655,7 @@ Howl was created to solve specific pain points with existing Claude Code statusl
 
 ## Contributing 🤝
 
-<img src="assets/mascot-howling.png" width="256" align="right" alt="Howl's mascot howling three gauge bars">
+<img src="assets/mascot-howling.png" width="224" align="right" alt="Howl's mascot howling, sound spreading in three arcs">
 
 This is a personal tool for the AiScream project. Feedback and bug reports welcome!
 

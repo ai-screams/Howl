@@ -125,11 +125,25 @@ def render_png(rows, cell, canvas=None, bg=BG, transparent=False):
         # The dark plate: lime alone is 1.3:1 on white, so every image that
         # can land on a light page (favicons, cards, the README mascots) keeps it.
         d.rounded_rectangle([0, 0, cw * cell - 1, chh * cell - 1], radius=round(min(cw, chh) * cell * 0.22), fill=bg)
+    draw_cells(d, rows, cell, ox * cell, oy * cell)
+    return im
+
+
+def draw_cells(d, rows, cell, x_off, y_off):
     for y, r in enumerate(rows):
         for x, ch in enumerate(r):
             if ch in RGB:
-                x0, y0 = (ox + x) * cell, (oy + y) * cell
+                x0, y0 = x_off + x * cell, y_off + y * cell
                 d.rectangle([x0, y0, x0 + cell - 1, y0 + cell - 1], fill=RGB[ch])
+
+
+def touch_icon(size=180, cell=11):
+    """iOS wants exactly 180 px and masks the icon itself, so this one is an
+    opaque square with no rounded corners: 14 cells x 11 px centered."""
+    im = Image.new("RGBA", (size, size), BG + (255,))
+    d = ImageDraw.Draw(im)
+    w, h = len(ICON[0]) * cell, len(ICON) * cell
+    draw_cells(d, ICON, cell, (size - w) // 2, (size - h) // 2)
     return im
 
 
@@ -200,13 +214,15 @@ def main():
     build.mkdir(parents=True, exist_ok=True)
 
     (site / "favicon.svg").write_text(render_svg(ICON))
+    render_png(ICON, 1, CANVAS).save(site / "favicon-16.png")  # one pixel per cell
     render_png(ICON, 2, CANVAS).save(site / "favicon-32.png")
-    render_png(ICON, 12, CANVAS).save(site / "apple-touch-icon.png")  # 192 px
+    touch_icon().save(site / "apple-touch-icon.png")  # 180 px, opaque
     render_png(ICON, 4, CANVAS).save(readme / "icon-64.png")
     render_png(ICON, 16, CANVAS).save(readme / "icon-256.png")
     render_png(mascot_listening(), 16).save(readme / "mascot-listening.png")
     render_png(mascot_howling(), 16).save(readme / "mascot-howling.png")
-    render_png(ICON, 32, CANVAS).convert("RGB").save(build / "howl.webp", quality=90)  # 512 px card for the org site
+    # 512 px card for the org site; keep the alpha so the corners stay transparent on its light page
+    render_png(ICON, 32, CANVAS).save(build / "howl.webp", lossless=True)
     if fonts:
         build_og(fonts)
     print("wrote", site, readme, build)
