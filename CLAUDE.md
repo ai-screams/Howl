@@ -11,22 +11,24 @@ Module: `github.com/ai-screams/howl`
 ## Commands
 
 ```bash
-make build     # CGO_ENABLED=0 go build → build/howl
-make install   # build + copy to ~/.claude/hud/howl
-make unit-test # go test ./... -v -cover -coverprofile=coverage.out
-make test      # smoke test: pipes sample JSON into built binary
-make lint      # golangci-lint run
-make fmt       # go fmt ./...
-make fmt-docs  # prettier on *.md *.yaml *.yml
-make check     # fmt + fmt-docs + lint + unit-test
-make setup     # configure .githooks + install prettier
+make build         # CGO_ENABLED=0 go build → build/howl
+make install       # build + copy to ~/.claude/hud/howl
+make unit-test     # go test ./... -v -cover -coverprofile=coverage.out
+make test          # smoke test: pipes sample JSON into built binary
+make lint          # golangci-lint run
+make fmt           # go fmt ./...
+make fmt-docs      # prettier on *.md *.yaml *.yml
+make check         # fmt + fmt-docs + lint + unit-test
+make setup         # configure .githooks + install prettier
+make release-dry   # goreleaser snapshot build into dist/ (no publish)
+make release-check # validate .goreleaser config
 ```
 
 Run a single test:
 
 ```bash
 go test ./internal -run TestComputeMetrics -v
-go test ./cmd/howl -run TestVersionFlag -v
+go test ./cmd/howl -run TestE2E_VersionFlag -v
 ```
 
 ## Architecture
@@ -36,7 +38,7 @@ Some checkouts carry an untracked `AGENTS.md` tree covering the same directories
 ### Data Pipeline (main.go)
 
 ```
-stdin JSON → json.Decode(StdinData) → LoadConfig → ComputeMetrics → GetGitInfo → GetUsage → ParseTranscript → GetAccountInfo → Render → stdout (ANSI lines, spaces → NBSP)
+stdin JSON → json.Decode(StdinData) → LoadConfig → ComputeMetrics → GetGitInfo → UsageFromRateLimits → ParseTranscript → GetAccountInfo → ReadUpdateNotice → Render → stdout (ANSI lines, spaces → NBSP)
 ```
 
 Every function after `ComputeMetrics` is **optional** — returns nil on failure, and Render gracefully omits that section. This is the core design principle: graceful degradation everywhere.
@@ -59,10 +61,10 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 
 ### Test Conventions
 
-~98% coverage. Every source file has a `_test.go` pair plus `integration_test.go` for full pipeline tests and `schema_test.go`, which decodes a real captured payload so a wrong `json:"…"` tag cannot pass unnoticed.
+~98% coverage. Every source file except `constants.go` has a `_test.go` pair plus `integration_test.go` for full pipeline tests and `schema_test.go`, which decodes a real captured payload so a wrong `json:"…"` tag cannot pass unnoticed.
 
 - **git_test.go** creates real git repos in `t.TempDir()`
-- **fuzz_test.go** fuzzes `visibleLen`, `fitParts`, and `RenderSubagentRow` — the escape-sequence and truncation paths where byte/rune and index mistakes hide
+- **fuzz_test.go** fuzzes `visibleLen`, `fitParts`, `RenderSubagentRow`, and `ReadUpdateNotice` — the escape-sequence and truncation paths where byte/rune and index mistakes hide
 - **cmd/howl/main_test.go** does E2E binary execution: builds the binary, pipes JSON via `exec.Command`
 - **integration_test.go** tests the full JSON → Unmarshal → ComputeMetrics → Render pipeline
 - **Re-introduce the bug to prove a new test catches it.** Two regression tests here passed with their bug still present: one chose multi-byte inputs that were also long in runes, so a byte-vs-rune slice worked by accident (the trigger needs byte length over the bound and rune length under it); the other stripped ANSI before asserting, which erased the injected escape it was looking for.
@@ -90,7 +92,7 @@ Three things this pipeline depends on, all easy to break:
 
 Active via `git config core.hooksPath .githooks`. Runs: go format, prettier (md/yaml), go mod tidy, golangci-lint. ~2s. Tests run in CI only.
 
-The hook exits before any check when prettier is not on `PATH` or in `$(go env GOPATH)/bin`, so no commit is possible at all. Run `make setup`.
+The hook exits before any check when golangci-lint or prettier is missing from both `PATH` and `$(go env GOPATH)/bin`, so no commit is possible at all. `make setup` installs only prettier; install golangci-lint separately (CI pins the version in `quality-lint.yaml`).
 
 If prettier fails on SECURITY.md or CHANGELOG.md tables, run `make fmt-docs` to auto-fix.
 
@@ -115,6 +117,9 @@ The repo is both the marketplace (`.claude-plugin/marketplace.json`) and the plu
 
 9 workflows across `.github/workflows/`. All GitHub Actions SHA-pinned. Dependabot updates actions weekly.
 
+- **Dependabot does not see tools a workflow installs itself** — golangci-lint (`version:` in quality-lint.yaml), gitleaks (curl + sha256 in security-secrets.yaml), svu (wget + sha256 in auto-release.yaml), govulncheck (`go install …@vX` in security-scan.yaml). Bump them by hand; take the sha256 from the release's checksums file, not from a hash you computed alone.
+- **A neutral or skipping `CodeQL`/`gitleaks` check on a PR is not a failure.** Code scanning reports "configurations not found" when main's results came from default setup or from the release/weekly workflow categories that the PR did not upload. It does not block merging.
+- **auto-release runs only on PR merge**, so a change to it is first exercised by the next merge. Check that run's `Current: vX, Next: vY` log line.
 - **auto-release.yaml** and **release.yaml** have **separate concurrency groups** (`auto-release` vs `release`) — this is critical. Sharing a group causes the tag-triggered Release to be skipped.
-- **release-build.yaml** uses GoReleaser v2 with `secrets: inherit` for the `GITHUB_TOKEN`.
+- **release-build.yaml** runs GoReleaser v2; `release.yaml` calls it with `secrets: inherit` to pass `GITHUB_TOKEN`.
 - Auto-release uses a GitHub App token (not GITHUB_TOKEN) because Actions tokens can't trigger other workflows.
