@@ -29,7 +29,7 @@ Claude Code는 로그인된 사용자 계정 정보를 **~/.claude.json** 글로
 
 ```bash
 # 계정 정보 위치
-~/.claude.json                # ✅ oauthAccount 구조 포함
+~/.claude.json # ✅ oauthAccount 구조 포함
 
 # 기타 설정 파일
 ~/.claude/settings.json       # 사용자 설정 (hooks, statusLine)
@@ -85,7 +85,7 @@ type StdinData struct {
 
 ### Keychain 조사
 
-```bash
+```text
 # macOS Keychain 확인
 security find-generic-password -s "Claude Code-credentials" -g
 
@@ -95,10 +95,11 @@ svce<blob>="Claude Code-credentials"
 ```
 
 **Keychain 내용**:
+
 ```json
 {
   "claudeAiOauth": {
-    "accessToken": "eyJ...",  // Opaque token (JWT 아님)
+    "accessToken": "eyJ...", // Opaque token (JWT 아님)
     "refreshToken": "...",
     "expiresAt": "..."
   }
@@ -108,6 +109,7 @@ svce<blob>="Claude Code-credentials"
 ### JWT vs Opaque Token
 
 **accessToken 분석 결과**:
+
 - JWT가 **아님** (base64 디코딩 실패)
 - Opaque token (서버만 해석 가능)
 - Email 정보 추출 **불가능**
@@ -135,11 +137,11 @@ svce<blob>="Claude Code-credentials"
 
 ```bash
 # Terminal A
-$ claude  # hanyul.ryu@gmail.com 로그인 중
+$ claude # hanyul.ryu@gmail.com 로그인 중
 
 # Terminal B
 $ /logout
-$ /login  # work@company.com으로 전환
+$ /login # work@company.com으로 전환
 
 # 결과
 → ~/.claude.json 전역 업데이트
@@ -202,6 +204,7 @@ func GetAccountInfo(sessionID string) *AccountInfo {
 ```
 
 **문제**:
+
 - 파일 2회 읽기 (캐시 + 원본)
 - 코드 복잡도 증가
 - 원본 읽기 = 캐시 읽기 속도 (둘 다 로컬 파일)
@@ -229,6 +232,7 @@ func GetAccountInfo() *AccountInfo {
 ```
 
 **장점**:
+
 - ✅ 극도로 단순 (7줄)
 - ✅ 파일 1회 읽기
 - ✅ 항상 최신 데이터
@@ -236,13 +240,13 @@ func GetAccountInfo() *AccountInfo {
 
 ### Usage vs Account 캐싱 비교
 
-| 항목 | Usage (API) | Account (파일) |
-|------|-------------|----------------|
-| 데이터 원본 | Anthropic API (네트워크) | ~/.claude.json (로컬) |
-| 읽기 비용 | 100-500ms | 1.5-2.5ms |
-| 캐싱 필요성 | ✅ 필수 (API 비용) | ❌ 불필요 (충분히 빠름) |
-| TTL | 5분 | N/A |
-| 복잡도 | 높음 (API + 파일) | 낮음 (파일만) |
+| 항목        | Usage (API)              | Account (파일)          |
+| ----------- | ------------------------ | ----------------------- |
+| 데이터 원본 | Anthropic API (네트워크) | ~/.claude.json (로컬)   |
+| 읽기 비용   | 100-500ms                | 1.5-2.5ms               |
+| 캐싱 필요성 | ✅ 필수 (API 비용)       | ❌ 불필요 (충분히 빠름) |
+| TTL         | 5분                      | N/A                     |
+| 복잡도      | 높음 (API + 파일)        | 낮음 (파일만)           |
 
 **결론**: Usage는 캐싱 필수, Account는 캐싱 불필요
 
@@ -256,16 +260,17 @@ func GetAccountInfo() *AccountInfo {
 
 ### 설계 선택
 
-| 항목 | 결정 | 근거 |
-|------|------|------|
-| **위치** | Line 2 좌측 (git 앞) | 눈에 잘 띄면서도 방해 안 됨 |
-| **형식** | Full email | 명확한 식별, 추후 커스터마이징 가능 |
-| **색상** | Grey/Dim (`\033[38;5;245m`) | 부가 정보, 다른 메트릭과 구분 |
-| **Danger mode** | 생략 (85%+) | 긴급 상황에서 공간 절약 |
+| 항목            | 결정                        | 근거                                |
+| --------------- | --------------------------- | ----------------------------------- |
+| **위치**        | Line 2 좌측 (git 앞)        | 눈에 잘 띄면서도 방해 안 됨         |
+| **형식**        | Full email                  | 명확한 식별, 추후 커스터마이징 가능 |
+| **색상**        | Grey/Dim (`\033[38;5;245m`) | 부가 정보, 다른 메트릭과 구분       |
+| **Danger mode** | 생략 (85%+)                 | 긴급 상황에서 공간 절약             |
 
 ### 표시 예시
 
 **Normal Mode:**
+
 ```
 [SONNET] [████████████████░░░░] 80% (800K/1000K) | $1.23 | 5m
 hanyul.ryu@gmail.com main* | +91/-14 | 42tok/s | (0h)5h: 4%/20% :7d(2d9h)
@@ -274,10 +279,12 @@ cache:80% | api:15% | cost:$0.02/m
 ```
 
 **Danger Mode (85%+):**
+
 ```
 [SONNET] [██████████████████░░] 90% (900K/1000K) | $2.45 | 8m | main* +150 -45
 $0.03/m | 5h: 2%/18% :7d(1d5h)
 ```
+
 (계정 정보 생략)
 
 ---
@@ -286,14 +293,14 @@ $0.03/m | 5h: 2%/18% :7d(1d5h)
 
 ### 파일 변경 목록
 
-| 파일 | 작업 | 라인 수 |
-|------|------|---------|
-| `internal/account.go` | ✨ 신규 생성 (GetAccountInfo) | ~30 |
-| `internal/types.go` | AccountInfo 구조체 추가 | ~5 |
-| `internal/render.go` | renderAccount() 추가, Line 2 수정 | ~15 |
-| `cmd/howl/main.go` | GetAccountInfo() 호출 | ~5 |
-| `internal/account_test.go` | ✨ 신규 생성 (테스트) | ~50 |
-| **총계** | | **~105 lines** |
+| 파일                       | 작업                              | 라인 수        |
+| -------------------------- | --------------------------------- | -------------- |
+| `internal/account.go`      | ✨ 신규 생성 (GetAccountInfo)     | ~30            |
+| `internal/types.go`        | AccountInfo 구조체 추가           | ~5             |
+| `internal/render.go`       | renderAccount() 추가, Line 2 수정 | ~15            |
+| `cmd/howl/main.go`         | GetAccountInfo() 호출             | ~5             |
+| `internal/account_test.go` | ✨ 신규 생성 (테스트)             | ~50            |
+| **총계**                   |                                   | **~105 lines** |
 
 ### account.go 전체 코드
 
@@ -335,6 +342,7 @@ func GetAccountInfo() *AccountInfo {
 ```
 
 **특징**:
+
 - 캐싱 로직 없음 (극도로 단순)
 - Graceful fail (파일 없으면 nil 반환)
 - 30줄로 완결
@@ -424,6 +432,7 @@ Howl 호출 주기: 300ms
 **질문**: 2.5ms를 0.1ms로 줄이기 위해 복잡한 캐싱을 추가할 가치가 있는가?
 
 **답**: 아니오.
+
 - 사용자 체감 차이: 없음
 - 코드 복잡도: 3배 증가
 - 버그 가능성: 증가
@@ -508,20 +517,20 @@ func TestGetAccountInfo(t *testing.T) {
 # ~/.claude/hud-config.yaml
 account:
   enabled: true
-  format: "full"          # full | prefix | displayName | custom
+  format: "full" # full | prefix | displayName | custom
   custom: "{displayName} <{email}>"
-  color: "grey"           # grey | cyan | blue | bold
-  position: "line2-left"  # line1-right | line2-left | line0
+  color: "grey" # grey | cyan | blue | bold
+  position: "line2-left" # line1-right | line2-left | line0
 ```
 
 ### 표시 형식 옵션
 
-| format | 예시 | 용도 |
-|--------|------|------|
-| `full` | `hanyul.ryu@gmail.com` | 명확한 식별 (기본값) |
-| `prefix` | `hanyul.ryu` | 공간 절약 |
-| `displayName` | `Hanyul` | 친근함 |
-| `custom` | `Hanyul <hanyul.ryu@gmail.com>` | 최대 정보 |
+| format        | 예시                            | 용도                 |
+| ------------- | ------------------------------- | -------------------- |
+| `full`        | `hanyul.ryu@gmail.com`          | 명확한 식별 (기본값) |
+| `prefix`      | `hanyul.ryu`                    | 공간 절약            |
+| `displayName` | `Hanyul`                        | 친근함               |
+| `custom`      | `Hanyul <hanyul.ryu@gmail.com>` | 최대 정보            |
 
 ---
 
@@ -529,17 +538,18 @@ account:
 
 ### 요약
 
-| 항목 | 결정 | 근거 |
-|------|------|------|
-| **데이터 위치** | ~/.claude.json | stdin/Keychain에 email 없음 |
-| **캐싱 전략** | 매번 직접 읽기 | Subprocess 모델 + 충분히 빠름 |
-| **표시 형식** | Full email | 명확하고 확장 가능 |
-| **성능 영향** | 0.67% 오버헤드 | 허용 가능 |
-| **코드 복잡도** | 30줄 (account.go) | 극도로 단순 |
+| 항목            | 결정              | 근거                          |
+| --------------- | ----------------- | ----------------------------- |
+| **데이터 위치** | ~/.claude.json    | stdin/Keychain에 email 없음   |
+| **캐싱 전략**   | 매번 직접 읽기    | Subprocess 모델 + 충분히 빠름 |
+| **표시 형식**   | Full email        | 명확하고 확장 가능            |
+| **성능 영향**   | 0.67% 오버헤드    | 허용 가능                     |
+| **코드 복잡도** | 30줄 (account.go) | 극도로 단순                   |
 
 ### 구현 가치
 
 ✅ **높음** (High Value, Low Cost)
+
 - 사용자 요청 직접 해결 (여러 계정 식별)
 - 구현 간단 (~105 lines)
 - 성능 영향 무시 가능 (0.67%)
@@ -556,23 +566,28 @@ account:
 ## 12. References
 
 ### Claude Code 공식 문서
+
 - [Authentication - Claude Code Docs](https://code.claude.com/docs/en/iam)
 - [Common workflows - Claude Code Docs](https://code.claude.com/docs/en/common-workflows)
 
 ### GitHub Issues
+
 - [OAuth account information structure](https://github.com/anthropics/claude-code/issues/1484)
 - [Multiple account feature request](https://github.com/anthropics/claude-code/issues/261)
 - [Multiple sessions management](https://github.com/anthropics/claude-code/issues/18435)
 
 ### Anthropic API
+
 - [Admin API - Get User endpoint](https://docs.anthropic.com/en/api/admin-api/users/get-user)
 - [API Overview](https://docs.anthropic.com/en/api/overview)
 
 ### Session Management
+
 - [Multi-Session Coordination Guide](https://deepwiki.com/FlorianBruniaux/claude-code-ultimate-guide/7.4-multi-session-and-multi-terminal-coordination)
 - [Managing Multiple Sessions - GitButler](https://blog.gitbutler.com/parallel-claude-code)
 
 ### 서드파티 도구
+
 - [CCS (Claude Code Switch) - Multi-Account Tool](https://ccs.kaitran.ca/)
 
 ---
