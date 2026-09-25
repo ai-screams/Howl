@@ -81,6 +81,26 @@ Both keep the plate. They are 16 px per cell and are shown at exactly half size.
 
 The icon next to the name in JetBrains Mono Bold, or in the page's display face where one is set. The OG image and the site's nav use this pairing. There is no separate logotype.
 
+## Rejected alternatives
+
+Six directions were drawn before the sprite, all on the same plate and lime.
+
+<img src="brand/concepts.png" width="470" alt="Six concept candidates: wisp, hood, dither, howl, listener, gauge">
+
+| Candidate                                    | Why it lost                                                               |
+| -------------------------------------------- | ------------------------------------------------------------------------- |
+| C1 Wisp, a smooth ghost with a trailing wave | Without the tail it is the Ghostty and Snapchat silhouette                |
+| C2 Hood, a pointed wraith with slit eyes     | Reads as a hood, not a ghost, and leaves only the eyes at 16 px           |
+| C4 Howl, a profile emitting arcs             | Directional; unstable as an icon                                          |
+| C5 Listener, arcs arriving from the left     | Two colors and thin arcs vanish at 16 px                                  |
+| C6 Gauge, filled top and outlined bottom     | At 16 px the outlined half looks like a box; the dither band reads better |
+
+C3, the dithered body, became the sprite; C6's idea of "how filled the ghost is" survives in its bottom rows.
+
+The howling mascot's sound went through five drafts. Static bars looked parked; the arcs won because they spread from the mouth.
+
+<img src="brand/howl-variants.png" width="200" alt="Five drafts of the howling mascot's sound: bars, rising bars, arcs, oscilloscope, leaning bars">
+
 ## Regenerating
 
 ```bash
