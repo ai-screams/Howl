@@ -31,6 +31,7 @@ Reference: [GitHub Docs](https://docs.github.com/en/actions/security-for-github-
 ### 2. Generate Private Key
 
 After app creation:
+
 - Scroll down to **Private keys** section
 - Click "Generate a private key"
 - Download `.pem` file (save securely!)
@@ -48,12 +49,14 @@ After app creation:
 Go to: https://github.com/ai-screams/howl/settings/secrets/actions
 
 **Secret 1: APP_ID**
+
 - Click "New repository secret"
 - Name: `APP_ID`
 - Value: `2833108` (your App ID number)
 - Click "Add secret"
 
 **Secret 2: APP_PRIVATE_KEY**
+
 - Click "New repository secret" again
 - Name: `APP_PRIVATE_KEY`
 - Value: (entire .pem file contents)
@@ -68,6 +71,7 @@ Go to: https://github.com/ai-screams/howl/settings/secrets/actions
 ### 5. Verify Setup
 
 Test token generation:
+
 ```bash
 gh workflow run test-github-app.yaml
 gh run list --workflow=test-github-app.yaml
