@@ -620,17 +620,20 @@ Howl started because the status line is the one place a coding session can be wa
 - **Width-aware** — the tool and agent line fits the terminal's `COLUMNS`
 - **Every string sanitized** — nothing from a transcript, branch name or session name can reach the terminal as an escape sequence
 
+<br clear="all">
+
 ---
 
 <a name="roadmap"></a>
 
 ## Roadmap 🗺️
 
-- [ ] Custom color schemes
-- [ ] Plugin system for custom metrics
-- [ ] Windows support
+Open items, in no particular order. Shipped work is recorded in [CHANGELOG.md](CHANGELOG.md), not here.
 
-Shipped items move to [CHANGELOG.md](CHANGELOG.md).
+- [ ] **Segment order setting** — a `priority` key was documented for a while but the binary never read it; segment order is fixed in `renderNormalMode`. Decide whether to implement it or leave the order fixed.
+- [ ] **Custom color schemes** — the ANSI colors are constants in `internal/render.go`; a `colors` block in `config.json` would let a light-terminal theme pick its own.
+- [ ] **Windows support** — releases build for macOS and Linux only; the git subprocess, `COLUMNS` handling and the install script all assume a Unix shell.
+- [ ] **Screenshots in CI** — `scripts/brand/render-statusline.py` regenerates the README images from the binary; running it in CI would catch a renderer change that the pictures no longer match.
 
 ---
 
@@ -641,6 +644,8 @@ Shipped items move to [CHANGELOG.md](CHANGELOG.md).
 <img src="assets/mascot-howling.png" width="224" align="right" alt="Howl's mascot howling, sound spreading in three arcs">
 
 This is a personal tool for the AiScream project. Feedback and bug reports welcome!
+
+<br clear="all">
 
 ---
 
