@@ -15,7 +15,7 @@ Needs Pillow (the only dependency). Run from the repository root.
 """
 
 import argparse
-import base64
+import math
 import pathlib
 import sys
 
@@ -85,8 +85,8 @@ def mascot_listening():
 
 
 def mascot_howling():
-    """The icon with its mouth open and three gold bars: the howl as a gauge."""
-    c = grid(30, 20)
+    """The icon with its mouth open and three gold arcs spreading from it."""
+    c = grid(26, 20)
     paste(c, ICON, 2, 2)
     # happy closed eyes: ^ ^
     for y in range(6, 9):
@@ -96,9 +96,15 @@ def mascot_howling():
     put(c, [(5, 7), (13, 7)], "X")
     # mouth, kept above the dither rows so it reads as part of the body
     put(c, [(8, 10), (9, 10), (7, 11), (8, 11), (9, 11), (10, 11), (8, 12), (9, 12)], "E")
-    # sound bars, bottoms aligned
-    for x0, h in ((19, 3), (23, 6), (27, 4)):
-        put(c, [(x, y) for y in range(13 - h, 13) for x in (x0, x0 + 1)], "G")
+    # three arcs fanning out to the right of the body (about 45 degrees each
+    # way), one cell thick, leaving a one-cell gap after the body's edge
+    cx, cy = 12.5, 11.5
+    for r in (5.5, 8.0, 10.5):
+        for y in range(20):
+            for x in range(17, 26):
+                dx, dy = x + 0.5 - cx, y + 0.5 - cy
+                if abs(math.hypot(dx, dy) - r) < 0.5 and abs(dy) <= r * 0.7:
+                    c[y][x] = "G"
     return ["".join(r) for r in c]
 
 
@@ -116,7 +122,9 @@ def render_png(rows, cell, canvas=None, bg=BG, transparent=False):
     im = Image.new("RGBA", (cw * cell, chh * cell), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     if not transparent:
-        d.rounded_rectangle([0, 0, cw * cell - 1, chh * cell - 1], radius=round(cw * cell * 0.22), fill=bg)
+        # The dark plate: lime alone is 1.3:1 on white, so every image that
+        # can land on a light page (favicons, cards, the README mascots) keeps it.
+        d.rounded_rectangle([0, 0, cw * cell - 1, chh * cell - 1], radius=round(min(cw, chh) * cell * 0.22), fill=bg)
     for y, r in enumerate(rows):
         for x, ch in enumerate(r):
             if ch in RGB:
@@ -138,14 +146,25 @@ def render_svg(rows, canvas=CANVAS, bg=True):
     return "".join(out)
 
 
-def build_og(font_dir):
+def load_fonts(font_dir):
+    """Open the OG fonts before anything is written, so a missing TTF stops
+    the run with nothing changed instead of leaving a stale og.png behind."""
+    try:
+        return {
+            "bold": ImageFont.truetype(str(font_dir / "JetBrainsMono-Bold.ttf"), 64),
+            "wordmark": ImageFont.truetype(str(font_dir / "JetBrainsMono-Bold.ttf"), 48),
+            "reg": ImageFont.truetype(str(font_dir / "JetBrainsMono-Regular.ttf"), 24),
+            "small": ImageFont.truetype(str(font_dir / "JetBrainsMono-Regular.ttf"), 20),
+        }
+    except OSError as e:
+        sys.exit(f"build-icons: cannot load JetBrains Mono from {font_dir}: {e}")
+
+
+def build_og(fonts):
     """1200x630 poster: the icon, the tagline, and a four-line statusline."""
     lime, gold, pink, grey, text, muted, sep, blue, panel = (
         "#c3ee7c", "#e8c66a", "#c86791", "#a3a7b8", "#e6e8f0", "#8e93a8", "#5b5d67", "#7ba4e8", "#2f3245")
-    bold = ImageFont.truetype(str(font_dir / "JetBrainsMono-Bold.ttf"), 64)
-    wordmark = ImageFont.truetype(str(font_dir / "JetBrainsMono-Bold.ttf"), 48)
-    reg = ImageFont.truetype(str(font_dir / "JetBrainsMono-Regular.ttf"), 24)
-    small = ImageFont.truetype(str(font_dir / "JetBrainsMono-Regular.ttf"), 20)
+    bold, wordmark, reg, small = fonts["bold"], fonts["wordmark"], fonts["reg"], fonts["small"]
     im = Image.new("RGB", (1200, 630), BG)
     d = ImageDraw.Draw(im)
     icon = render_png(ICON, 4, CANVAS, transparent=True)  # 64 px, no squircle
@@ -173,6 +192,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--og", metavar="FONT_DIR", help="also rebuild site/assets/og.png using the TTFs in FONT_DIR")
     args = ap.parse_args()
+    fonts = load_fonts(pathlib.Path(args.og)) if args.og else None
 
     site = ROOT / "site/assets"
     readme = ROOT / "assets"
@@ -184,11 +204,11 @@ def main():
     render_png(ICON, 12, CANVAS).save(site / "apple-touch-icon.png")  # 192 px
     render_png(ICON, 4, CANVAS).save(readme / "icon-64.png")
     render_png(ICON, 16, CANVAS).save(readme / "icon-256.png")
-    render_png(mascot_listening(), 16, transparent=True).save(readme / "mascot-listening.png")
-    render_png(mascot_howling(), 16, transparent=True).save(readme / "mascot-howling.png")
+    render_png(mascot_listening(), 16).save(readme / "mascot-listening.png")
+    render_png(mascot_howling(), 16).save(readme / "mascot-howling.png")
     render_png(ICON, 32, CANVAS).convert("RGB").save(build / "howl.webp", quality=90)  # 512 px card for the org site
-    if args.og:
-        build_og(pathlib.Path(args.og))
+    if fonts:
+        build_og(fonts)
     print("wrote", site, readme, build)
 
 
