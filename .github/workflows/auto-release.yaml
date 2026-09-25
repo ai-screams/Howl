@@ -38,16 +38,16 @@ jobs:
 
       - name: Install svu
         run: |
-          wget -O /tmp/svu.tar.gz https://github.com/caarlos0/svu/releases/download/v2.2.0/svu_2.2.0_linux_amd64.tar.gz
-          echo "55bd4579323ec589c1e96d0242295e231c526abb1ae8726945c60385510d96b5  /tmp/svu.tar.gz" | sha256sum -c -
-          tar -xzf /tmp/svu.tar.gz -C /tmp
+          wget -O /tmp/svu.tar.gz https://github.com/caarlos0/svu/releases/download/v3.4.1/svu_3.4.1_linux_amd64.tar.gz
+          echo "7ee8c91998c15109130638dc661a912d5f426e2f8642f6f6c04e6502be920770  /tmp/svu.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/svu.tar.gz -C /tmp svu
           sudo mv /tmp/svu /usr/local/bin/
 
       - name: Calculate next version
         id: version
         run: |
-          CURRENT=$(svu current || echo "v0.0.0")
-          NEXT=$(svu next)
+          CURRENT=$(svu current --tag.mode current || echo "v0.0.0")
+          NEXT=$(svu next --tag.mode current)
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
           echo "next=$NEXT" >> $GITHUB_OUTPUT
           echo "Current: $CURRENT, Next: $NEXT"
