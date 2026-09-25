@@ -78,11 +78,11 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 
 The auto-release pipeline: PR merge to main → svu calculates next version → syncs `.claude-plugin/plugin.json` version → pushes a git tag → release.yaml starts from its `push: tags` trigger → GoReleaser builds 4 binaries. Direct pushes to main (docs, ci, chore) do **not** trigger version bumps.
 
-Two things this pipeline depends on, both easy to break:
+Three things this pipeline depends on, all easy to break:
 
 - **Never write a CI skip marker into a commit message, not even inside backticks while explaining one.** GitHub scans the entire message and suppresses every workflow for that push. A fix to this pipeline once skipped its own verification run that way. `.githooks/commit-msg` now rejects such messages; write "skip-ci" or "the CI skip marker" in prose instead.
 - **The sync commit must not carry a skip marker.** The tag points at it, and GitHub evaluates skip directives against the head commit of a push — marking it skip suppresses the tag push as well, so nothing starts release.yaml.
-- **svu reads the whole squash commit message, not just its subject.** A `fix:` or `feat:` line in the body of a `chore:`-titled squash still bumps the version. Keep conventional prefixes out of commit bodies unless the bump is intended.
+- **svu decides the bump from each commit's subject line, not its body.** The PR title becomes the squash subject, so it must carry the prefix the release needs: a `chore:`-titled PR that adds a feature in its body ships no release. A `BREAKING CHANGE:` footer in the body still forces a major bump; a `feat!:` line in the body does not. The workflow passes `--tag.mode current` so the current version comes only from tags reachable from `main`.
 
 `workflow_dispatch` on release.yaml stays available for re-running a release by hand: `gh workflow run release.yaml -f tag=vX.Y.Z`.
 
