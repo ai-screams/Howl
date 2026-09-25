@@ -67,8 +67,8 @@ h1 span{background:linear-gradient(90deg,var(--lime),var(--gold));-webkit-backgr
 .seg button[aria-pressed="true"]{background:var(--lime);color:#1c1e2b}
 .seg button[disabled]{opacity:.35;cursor:default}
 .hud{color:#d8dbe6;font:14px/1.75 var(--mono);padding:14px 16px;overflow-x:auto;white-space:pre;font-variant-numeric:tabular-nums;margin:0;min-height:calc(14px*1.75*4 + 28px)}
-.hud .sep{color:#5b5d67}.hud .grey{color:#8a8a8a}.hud .dim{color:#6f7285}.hud .gold{color:#e8c66a}.hud .lime{color:#c3ee7c}.hud .pink{color:#c86791}.hud .orange{color:#ff8700}.hud .blue{color:#7ba4e8}.hud .cyan{color:#6ccbd9}.hud .b{font-weight:700}
-.hud-foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;padding:8px 16px;border-top:1px solid #3b3f55;font:12px var(--mono);color:#8e93a8}
+.hud .sep{color:#5b5d67}.hud .grey{color:#a3a7b8}.hud .dim{color:#979bad}.hud .gold{color:#e8c66a}.hud .lime{color:#c3ee7c}.hud .pink{color:#c86791}.hud .orange{color:#ff8700}.hud .blue{color:#7ba4e8}.hud .cyan{color:#6ccbd9}.hud .b{font-weight:700}
+.hud-foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;padding:8px 16px;border-top:1px solid #3b3f55;font:12px var(--mono);color:#a3a7b8}
 
 .install{width:100%;max-width:640px;display:grid;grid-template-columns:1fr auto;border:1px solid var(--rule);border-radius:14px;background:var(--card);overflow:hidden;text-align:left}
 .install pre{margin:0;padding:14px 18px;font:14px/1.7 var(--mono);overflow-x:auto}
@@ -135,10 +135,10 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
 
 <section id="features">
   <h2>Everything a session needs to say</h2>
-  <p class="sub">Every segment is one metric with its own color thresholds. Turn any of them off, or reorder line two.</p>
+  <p class="sub">Every segment is one metric with its own color thresholds. Turn any of them off.</p>
   <div class="grid">
-    <div class="card"><div class="seg-ex"><span style="color:#ff8700">████████░░</span> 71% <span style="color:#8a8a8a">(142K/200K)</span></div><h3>Context health</h3><p>A ten-character bar with absolute tokens, not just a percentage. Formats as K or M, so a 1M window reads the same way.</p></div>
-    <div class="card"><div class="seg-ex"><span style="color:#c3ee7c">█████████░</span> 94% <span style="color:#8a8a8a">(4h37m/5h)</span></div><h3>Quota windows</h3><p>The 5-hour and 7-day limits with time to reset, taken from the <code>rate_limits</code> field Claude Code already sends.</p></div>
+    <div class="card"><div class="seg-ex"><span style="color:#ff8700">████████░░</span> 71% <span style="color:#a3a7b8">(142K/200K)</span></div><h3>Context health</h3><p>A ten-character bar with absolute tokens, not just a percentage. Formats as K or M, so a 1M window reads the same way.</p></div>
+    <div class="card"><div class="seg-ex"><span style="color:#c3ee7c">█████████░</span> 94% <span style="color:#a3a7b8">(4h37m/5h)</span></div><h3>Quota windows</h3><p>The 5-hour and 7-day limits with time to reset, taken from the <code>rate_limits</code> field Claude Code already sends.</p></div>
     <div class="card"><div class="seg-ex">Cache:<span style="color:#c3ee7c">99%</span> <span style="color:#5b5d67">|</span> Wait:<span style="color:#c3ee7c">6%</span></div><h3>Cache and wait</h3><p>How much of the last call hit the prompt cache, and what share of the session was spent waiting on the API.</p></div>
     <div class="card"><div class="seg-ex">Cost:<span style="color:#c3ee7c">$0.03/m</span> <span style="color:#5b5d67">|</span> <span style="color:#c86791;font-weight:700">$185.4</span></div><h3>Cost velocity</h3><p>Dollars per minute next to the session total. <span id="threshold-count">Fifteen</span> thresholds decide when each color changes.</p></div>
   </div>
@@ -149,7 +149,7 @@ footer a{text-decoration:none}footer a:hover{color:var(--text)}
   <p class="sub">When context crosses the danger threshold, Howl collapses to two dense lines: tokens left, time left, and the numbers that still matter. Use the controls above the HUD to switch presets and modes, or click a preset here.</p>
   <div class="presets">
     <button class="preset" type="button" data-preset="full"><code>full</code><p>Everything on. Git, tools, agents, cache, wait, cost velocity, vim mode.</p></button>
-    <button class="preset" type="button" data-preset="minimal"><code>minimal</code><p>Model, context bar, cost and duration. Nothing else.</p></button>
+    <button class="preset" type="button" data-preset="minimal"><code>minimal</code><p>Model, context bar, cost, duration and the version line.</p></button>
     <button class="preset" type="button" data-preset="developer"><code>developer</code><p>Git, line changes, tools, agents, cache and vim mode. No cost velocity.</p></button>
     <button class="preset" type="button" data-preset="cost-focused"><code>cost-focused</code><p>Quota, API wait, cost velocity and output tokens. No git or tools.</p></button>
   </div>
