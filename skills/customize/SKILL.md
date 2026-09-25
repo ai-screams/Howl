@@ -1,11 +1,11 @@
 ---
-description: Customize Howl statusline with fine-grained metric toggles and priority ordering
+description: Customize Howl statusline with fine-grained metric toggles on top of a preset
 disable-model-invocation: false
 ---
 
 # Howl Customize
 
-Advanced configuration for Howl statusline: choose a base preset, toggle individual metrics, and set display priority for Line 2.
+Advanced configuration for Howl statusline: choose a base preset, then toggle individual metrics on top of it. Segment order within a line is fixed in the binary; there is no ordering setting.
 
 ## Configuration Structure
 
@@ -15,7 +15,6 @@ Advanced configuration for Howl statusline: choose a base preset, toggle individ
   "features": {
     "quota": true
   },
-  "priority": ["quota", "git"],
   "thresholds": {
     "context_danger": 90
   }
@@ -24,7 +23,6 @@ Advanced configuration for Howl statusline: choose a base preset, toggle individ
 
 - **preset**: Base configuration (`full`, `minimal`, `developer`, `cost-focused`)
 - **features**: Override specific metrics from the preset base (optional)
-- **priority**: Reorder Line 2 metrics by importance (optional, max 5)
 - **thresholds**: Override color/behavior breakpoints (optional, see `/howl:threshold`)
 
 ## Process
@@ -135,29 +133,7 @@ config.json entirely — a preset name alone is easier to read later.
 
 **Store selections as `selectedFeatures` array.**
 
-### Step 3: Set Display Priority (Line 2 Only)
-
-**Use AskUserQuestion with multiSelect for priority:**
-
-- **Question**: "Choose which metrics should appear first on Line 2 (max 5, ordered by selection)"
-- **Header**: "Display Priority (Optional)"
-- **Subtitle**: "Only Line 2 metrics can be prioritized. Selected order = display order."
-- **Options** (4 checkboxes, only Line 2 metrics):
-  1. **account** - Account email
-  2. **git** - Git branch + status
-  3. **line_changes** - Code additions/deletions
-  4. **quota** - Usage quota visualization
-
-**Constraints:**
-
-- Max 5 selections
-- Selection order determines display order
-- Only show metrics that are **enabled** in the feature toggles from Step 2
-- If user selects 0 metrics, omit `priority` from config.json
-
-**Store selections as `priorityOrder` array (preserving order).**
-
-### Step 4: Generate and Apply Configuration
+### Step 3: Generate and Apply Configuration
 
 **Build the config object:**
 
@@ -166,12 +142,8 @@ config.json entirely — a preset name alone is easier to read later.
   "preset": "<chosenPreset>",
   "features": {
     // Only include if different from preset base
-    // Format: "metric_name": true/false
-  },
-  "priority": [
-    // Only include if user selected 1+ metrics
-    // Format: ["metric1", "metric2", ...]
-  ]
+    // Format: "metric_name": true
+  }
 }
 ```
 
@@ -191,11 +163,12 @@ EOF
 
 Preset: developer
 Overrides: quota (enabled)
-Priority: quota → git
 
 Preview (example):
-[Sonnet 4.5] | ████░░░░░░░░░░░░░░░░ 21% (210K/1M) | $32.7 | 2h46m
-(2h)5h: 55%/42% :7d(3d6h) | user@example.com | main* | +2.7K/-120 | Cache:96% | I
+[Opus 4.6] | user@example.com | main* | Out:1K | $185.4 | 91h12m
+████░░░░░░  41% ( 82K/200K) | █████████░  94% (4h36m/5h) | ███████░░░  79% (2d20h/7d)
+Δ+3.4K/-1.3K | Cache:99%(W:0K/R:82K) | Insert | v2.1.272
+Bash(5) Read(3) Edit(1)
 
 Changes will apply on next refresh (~300ms).
 ```
@@ -215,18 +188,7 @@ User wants `developer` preset but also wants quota visualization:
 }
 ```
 
-### Example 2: Full Customization with Priority
-
-User wants `full` preset but prioritizes git and quota on Line 2:
-
-```json
-{
-  "preset": "full",
-  "priority": ["git", "quota"]
-}
-```
-
-### Example 3: Minimal + Selective Additions
+### Example 2: Minimal + Selective Additions
 
 User wants `minimal` but adds git and cache:
 
@@ -237,17 +199,6 @@ User wants `minimal` but adds git and cache:
     "git": true,
     "cache_efficiency": true
   }
-}
-```
-
-### Example 4: Cost-focused with Custom Priority
-
-User wants `cost-focused` and reorders Line 2:
-
-```json
-{
-  "preset": "cost-focused",
-  "priority": ["quota"]
 }
 ```
 
@@ -285,18 +236,19 @@ This override cannot be disabled - it's a safety feature. The trigger point can 
 
 - Invalid preset names fall back to `full`
 - Feature toggles only accept known metrics (others ignored silently)
-- Priority only accepts **Line 2 metrics** (others ignored)
-- Priority is capped at **5 metrics maximum**
-- Duplicate entries in priority are removed
+- Any other key, `priority` included, is ignored silently — the binary reads only `preset`, `features` and `thresholds`
 - Config file size limited to 4KB (DoS protection)
 
 ### Line Placement Rules
 
-- **Line 1**: Model badge, context bar, cost, duration (always shown)
-- **Line 2**: account, git, line_changes, quota (prioritizable)
-- **Line 3**: tools, agents (only in `full` preset or danger mode)
-- **Line 4**: cache_efficiency, api_wait_ratio, cost_velocity, vim_mode, agent_name (only in `full` or danger mode)
-- **Optional** (default off): effort, thinking, session_name, pull_request, worktree
+Fixed in `renderNormalMode` in `internal/render.go`; read it there rather than trusting a summary. In outline:
+
+- **Line 1**: model badge, then account, git, output tokens, cost, duration. When `quota` is off, the context bar moves into this line.
+- **Line 2** (only with `quota`): context bar, 5h quota bar, 7d quota bar.
+- **Line 3**: line changes, cache, API wait, cost velocity, vim mode, the optional fields, then the Claude Code version (always).
+- **Line 4**: tools and running agents.
+
+Danger mode ignores the toggles and always prints its own two lines.
 
 ### Refresh Rate
 
@@ -324,12 +276,9 @@ Agent: I can help customize that! Let's walk through it.
 ☐ quota, tools, agents, api_wait_ratio, cost_velocity, agent_name, effort, thinking, session_name, pull_request, worktree
 > User also checks: quota
 
-[Step 3] Priority for Line 2 (max 5):
-> User selects: quota, git (in that order)
-
 Applying configuration...
-✅ Config applied: developer + quota, priority: quota → git
-Preview: (2h)5h: 55%/42% :7d(3d6h) | user@example.com | ...
+✅ Config applied: developer + quota
+Preview: [Opus 4.6] | user@example.com | main* | ...
 
 Changes will apply in ~300ms.
 ```
