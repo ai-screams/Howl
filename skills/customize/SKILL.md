@@ -41,7 +41,7 @@ Advanced configuration for Howl statusline: choose a base preset, then toggle in
   - Label: **"developer"**  
     Description: "Coding focus: full minus API wait, cost velocity and agent name (up to 4 lines)"
   - Label: **"cost-focused"**  
-    Description: "Budget tracking: Account, Output tokens, Quota, API wait, Cost velocity (3 lines)"
+    Description: "Budget tracking: Account, Output tokens, Quota, API wait, Cost velocity (up to 3 lines)"
 
 **Store the user's selection as `chosenPreset`.**
 

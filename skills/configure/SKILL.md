@@ -14,7 +14,7 @@ Help the user choose a display preset for their Howl statusline HUD.
 | **full**         | up to 4 | Complete visibility | Every toggle on (default)                                                                             |
 | **minimal**      | 2       | Clean workspace     | Nothing else                                                                                          |
 | **developer**    | up to 4 | Coding focus        | Account, git, changes, output tokens, quota, tools, agents, cache, vim (no API wait or cost velocity) |
-| **cost-focused** | 3       | Budget tracking     | Account, output tokens, quota, API wait, cost velocity (no git, tools or agents)                      |
+| **cost-focused** | up to 3 | Budget tracking     | Account, output tokens, quota, API wait, cost velocity (no git, tools or agents)                      |
 
 ## Process
 
@@ -25,8 +25,8 @@ Help the user choose a display preset for their Howl statusline HUD.
    - Options (4):
      - Label: "full (default)" | Description: "Complete visibility - All metrics (up to 4 lines)"
      - Label: "minimal" | Description: "Clean workspace - Model + Context + Cost + Duration only (2 lines: the first line and the version line)"
-     - Label: "developer" | Description: "Coding focus - full minus API wait, cost velocity and agent name (2 lines)"
-     - Label: "cost-focused" | Description: "Budget tracking - Account, Output tokens, Quota, API wait, Cost velocity (2 lines)"
+     - Label: "developer" | Description: "Coding focus - full minus API wait, cost velocity and agent name (up to 4 lines)"
+     - Label: "cost-focused" | Description: "Budget tracking - Account, Output tokens, Quota, API wait, Cost velocity (up to 3 lines)"
 
 2. **Show a preview** of their chosen preset:
 
