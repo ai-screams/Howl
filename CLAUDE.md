@@ -113,9 +113,15 @@ The repo is both the marketplace (`.claude-plugin/marketplace.json`) and the plu
 
 `scripts/sync-binary.sh` runs at SessionStart and must stay a no-op with no network when in sync. Preset contents live in `presets` in `internal/config.go` — doc copies of them drifted for months; read the source.
 
+## Product Page
+
+`site/` is the product page at https://ai-scream.ai/Howl/ — one static `index.html` with inline CSS/JS and self-hosted fonts, no build step. `pages.yaml` deploys it on pushes to `main` that touch `site/**`. The path is case-sensitive: spell it `Howl`.
+
+The hero's HUD demo is a JavaScript copy of `renderNormalMode`/`renderDangerMode`. Its preset toggles and thresholds sit in the page's `howl-config` JSON block, and `internal/site_test.go` fails when that block differs from `config.go`, when the page requests another host, or when a local link is broken. A change to which segments a line carries is not caught by the test — mirror it in `site/index.html` by hand.
+
 ## CI/CD
 
-9 workflows across `.github/workflows/`. All GitHub Actions SHA-pinned. Dependabot updates actions weekly.
+10 workflows across `.github/workflows/`. All GitHub Actions SHA-pinned. Dependabot updates actions weekly.
 
 - **Dependabot does not see tools a workflow installs itself** — golangci-lint (`version:` in quality-lint.yaml), gitleaks (curl + sha256 in security-secrets.yaml), svu (wget + sha256 in auto-release.yaml), govulncheck (`go install …@vX` in security-scan.yaml). Bump them by hand; take the sha256 from the release's checksums file, not from a hash you computed alone.
 - **A neutral or skipping `CodeQL`/`gitleaks` check on a PR is not a failure.** Code scanning reports "configurations not found" when main's results came from default setup or from the release/weekly workflow categories that the PR did not upload. It does not block merging.
