@@ -58,7 +58,7 @@ Only specified thresholds override defaults. Omitted fields keep default values.
 1. Read existing config.json
 2. Remove the `thresholds` field, preserving `preset`, `features`, and `priority`
 3. Write back
-4. Confirm: "Thresholds reset to defaults. Changes apply in ~300ms."
+4. Confirm: "Thresholds reset to defaults. Changes apply on the next refresh (at most the 10-second `refreshInterval`)."
 5. Done.
 
 **If "Quick Adjust":**
@@ -135,7 +135,7 @@ Thresholds Updated
   context_warning: 70 → 75
 
 All other thresholds remain at defaults.
-Changes apply on next refresh (~300ms).
+Changes apply on the next refresh (at most the 10-second `refreshInterval`).
 ```
 
 5. Ask: "Would you like to customize another group?"
@@ -224,7 +224,7 @@ User wants earlier quota warnings:
 
 ### Refresh Rate
 
-Changes apply on the next statusline refresh (~300ms). No restart needed.
+Changes apply on the next statusline refresh — the next event, or the `refreshInterval` timer, 10 seconds as `/howl:setup` sets it. No restart needed.
 
 ## Example Dialogue
 
@@ -245,5 +245,5 @@ Applying...
   context_warning: 70 → 80
 
 Danger mode will now activate at 92% context usage.
-Changes apply in ~300ms.
+Changes apply on the next refresh (at most the 10-second `refreshInterval`).
 ```

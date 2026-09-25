@@ -23,8 +23,8 @@ Help the user choose a display preset for their Howl statusline HUD.
    - Question: "Which Howl statusline preset would you like to use?"
    - Header: "Display Preset"
    - Options (4):
-     - Label: "full (default)" | Description: "Complete visibility - All metrics (2-4 lines)"
-     - Label: "minimal" | Description: "Clean workspace - Model + Context + Cost + Duration only (1 line)"
+     - Label: "full (default)" | Description: "Complete visibility - All metrics (up to 4 lines)"
+     - Label: "minimal" | Description: "Clean workspace - Model + Context + Cost + Duration only (2 lines: the first line and the version line)"
      - Label: "developer" | Description: "Coding focus - full minus API wait, cost velocity and agent name (2 lines)"
      - Label: "cost-focused" | Description: "Budget tracking - Account, Output tokens, Quota, API wait, Cost velocity (2 lines)"
 
@@ -71,7 +71,7 @@ Help the user choose a display preset for their Howl statusline HUD.
    ```
 
 4. **Confirm** the change:
-   "✅ Preset set to **CHOSEN_PRESET**. Changes will appear in the next statusline refresh (~300ms)."
+   "✅ Preset set to **CHOSEN_PRESET**. Changes will appear on the next statusline refresh (the next event, or the `refreshInterval` timer, 10 s by default)."
 
 ## Reset to Default
 
@@ -113,7 +113,7 @@ This behavior cannot be disabled - it's a safety feature. The trigger point can 
 
 ### Refresh Rate
 
-Configuration changes apply on the next statusline refresh, which occurs approximately every 300ms. You don't need to restart Claude Code.
+Configuration changes apply on the next statusline refresh, which is the next event or the `refreshInterval` timer that `/howl:setup` sets to 10 seconds. You don't need to restart Claude Code.
 
 ## Example Dialogue
 
@@ -129,7 +129,7 @@ Agent: Here's what minimal will look like:
 [Sonnet 4.5] | ████░░░░░░░░░░░░░░░░ 21% (210K/1M) | $32.7 | 2h46m
 
 Applying configuration...
-✅ Preset set to minimal. Changes will appear in ~300ms.
+✅ Preset set to minimal. Changes will appear on the next refresh (at most the 10-second `refreshInterval`).
 
 Note: At the danger threshold (default 85%), Howl will temporarily show full info for safety.
 You can adjust this via /howl:threshold.

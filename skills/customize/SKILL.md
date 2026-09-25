@@ -35,9 +35,9 @@ Advanced configuration for Howl statusline: choose a base preset, then toggle in
 - **Header**: "Choose Base Preset"
 - **Options** (4):
   - Label: **"full (default)"**  
-    Description: "All 12 preset toggles - Complete visibility (2-4 lines)"
+    Description: "All 12 preset toggles - Complete visibility (up to 4 lines)"
   - Label: **"minimal"**  
-    Description: "Model + Context + Cost + Duration only (1 line)"
+    Description: "Model + Context + Cost + Duration, plus the version line (2 lines)"
   - Label: **"developer"**  
     Description: "Coding focus: full minus API wait, cost velocity and agent name (2 lines)"
   - Label: **"cost-focused"**  
@@ -117,7 +117,7 @@ because `mergeFeatures` can only turn a flag on. To drop something the preset
 includes, start from `minimal` in Step 1 and check only what is wanted.
 
 - Want `full` without git? Start from `minimal` and check everything except git.
-- Want `developer` plus quota? Start from `developer` and check quota.
+- Want `developer` plus the API wait ratio? Start from `developer` and check `api_wait_ratio`.
 
 **The update badge is the exception.** `hide_update_notice` is an opt-**out**: it
 is on by default, and setting it to `true` turns the badge off. It exists in this
@@ -162,7 +162,7 @@ EOF
 ✅ Configuration Applied
 
 Preset: developer
-Overrides: quota (enabled)
+Overrides: api_wait_ratio (enabled)
 
 Preview (example):
 [Opus 4.6] | user@example.com | main* | Out:1K | $185.4 | 91h12m
@@ -170,20 +170,20 @@ Preview (example):
 Δ+3.4K/-1.3K | Cache:99%(W:0K/R:82K) | Insert | v2.1.272
 Bash(5) Read(3) Edit(1)
 
-Changes will apply on next refresh (~300ms).
+Changes apply on the next refresh: the next event, or the `refreshInterval` timer (10 s as `/howl:setup` sets it).
 ```
 
 ## Examples
 
 ### Example 1: Preset + Feature Override
 
-User wants `developer` preset but also wants quota visualization:
+User wants `developer` preset but also wants the API wait ratio (not in `developer`):
 
 ```json
 {
   "preset": "developer",
   "features": {
-    "quota": true
+    "api_wait_ratio": true
   }
 }
 ```
@@ -252,7 +252,7 @@ Danger mode ignores the toggles and always prints its own two lines.
 
 ### Refresh Rate
 
-Configuration changes apply on the next statusline refresh (~300ms). No restart needed.
+Configuration changes apply on the next statusline refresh — the next event, or the `refreshInterval` timer, which `/howl:setup` sets to 10 seconds. No restart needed.
 
 ### Quick Switch Between Presets
 
@@ -272,13 +272,13 @@ Agent: I can help customize that! Let's walk through it.
 > developer
 
 [Step 2] Customize metrics (pre-checked based on developer):
-☑ account, git, line_changes, cache_efficiency, vim_mode
-☐ quota, tools, agents, api_wait_ratio, cost_velocity, agent_name, effort, thinking, session_name, pull_request, worktree
-> User also checks: quota
+☑ account, git, line_changes, output_tokens, quota, tools, agents, cache_efficiency, vim_mode
+☐ api_wait_ratio, cost_velocity, agent_name, effort, thinking, session_name, pull_request, worktree, prompt_cache, fast_mode, exceeds_200k, output_style, repo, added_dirs
+> User also checks: api_wait_ratio
 
 Applying configuration...
-✅ Config applied: developer + quota
+✅ Config applied: developer + api_wait_ratio
 Preview: [Opus 4.6] | user@example.com | main* | ...
 
-Changes will apply in ~300ms.
+Changes apply on the next refresh (at most the 10-second `refreshInterval`).
 ```

@@ -51,7 +51,7 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 - **metrics.go** — `Metrics` struct + `ComputeMetrics()`: context%, cache efficiency, API wait ratio, cost/min
 - **constants.go** — Default threshold values (danger 85%, warning 70%, moderate 50%, session cost $5/$1, cache 80/50%, API wait 60/35%, cost velocity $0.50/$0.10/min, quota 10/25/50/75%). All 15 are configurable via `config.go` Thresholds
 - **config.go** — `Config` + `FeatureToggles` + `Thresholds` (15 configurable color/behavior values) + 4 presets (full/minimal/developer/cost-focused). `LoadConfig()` reads `~/.claude/hud/config.json` with 4KB size guard. Features merge via `mergeFeatures(base, override)` — override can only enable, not disable. Thresholds merge via `mergeThresholds(base, override)` — only positive values override, validated via 3-step clamping
-- **render.go** — `Render()` dispatches to `renderNormalMode` (2-4 lines) or `renderDangerMode` (2 dense lines) at configurable context threshold (default 85%). Segment order within a line is fixed in code; there is no priority or ordering setting (`Config` has none, and `json.Unmarshal` drops an unknown `priority` key silently)
+- **render.go** — `Render()` dispatches to `renderNormalMode` (up to 4 lines) or `renderDangerMode` (2 dense lines) at configurable context threshold (default 85%). Segment order within a line is fixed in code; there is no priority or ordering setting (`Config` has none, and `json.Unmarshal` drops an unknown `priority` key silently)
 - **git.go** — `GetGitInfo()`: branch + dirty via subprocess with 1s timeout
 - **usage.go** — `UsageFromRateLimits()`: converts the stdin `rate_limits` object into the render model. Pure function — no network, cache, or Keychain
 - **transcript.go** — `ParseTranscript()`: tail-reads last 64KB/100 lines of JSONL, extracts top-5 tools + running agents
@@ -111,7 +111,7 @@ The repo is both the marketplace (`.claude-plugin/marketplace.json`) and the plu
 - **A plugin cannot set `statusLine`.** Only `agent` and `subagentStatusLine` are allowed in a plugin's own `settings.json`, which is why `/howl:setup` exists to write the user's settings. `subagentStatusLine` ships from the plugin and needs no setup.
 - **Auto-update is off by default for third-party marketplaces.** Without the `/plugin` → Marketplaces toggle, an install stays on its original version forever. The status line's own update badge exists to cover users who never find it.
 
-`scripts/sync-binary.sh` runs at SessionStart and must stay a no-op with no network when in sync. Preset contents live in `presets` in `internal/config.go` — doc copies of them drifted for months; read the source.
+`scripts/sync-binary.sh` runs at SessionStart; its binary-sync step must stay a no-op with no download when in sync, and its only network call is the once-a-day release check for the update badge, never from the render path. Preset contents live in `presets` in `internal/config.go` — doc copies of them drifted for months; read the source.
 
 ## Product Page
 

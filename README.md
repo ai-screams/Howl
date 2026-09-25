@@ -2,7 +2,7 @@
 
 > _"Your AI screams — Howl listens."_
 
-A statusline HUD for [Claude Code](https://code.claude.com), written in Go. It reads the JSON Claude Code pipes to a status line command and prints context, quota, cache, cost, git and tool activity as two to four ANSI lines, in about ten milliseconds, with no dependencies beyond the Go standard library.
+A statusline HUD for [Claude Code](https://code.claude.com), written in Go. It reads the JSON Claude Code pipes to a status line command and prints context, quota, cache, cost, git and tool activity as up to four ANSI lines — a few milliseconds on its own, about twenty with git and the transcript read (see [Performance](#performance)) — with no dependencies beyond the Go standard library.
 
 **Website:** [ai-scream.ai/Howl](https://ai-scream.ai/Howl/) · **Brand and icon:** [docs/brand.md](docs/brand.md)
 
@@ -125,7 +125,7 @@ numeric token budget.
 
 ### Adaptive Layouts 🎨
 
-- **Normal Mode** (< 85% context, configurable) — 2-4 line display (lines added as features activate)
+- **Normal Mode** (< 85% context, configurable) — up to four lines, added as features activate
 - **Danger Mode** (85%+ context, configurable) — Dense 2-line view with token breakdown and hourly cost
 - **Width-Aware Rendering** — Tool/agent line sizes to `COLUMNS` env var (clamped 40–240, fallback 80; requires CC 2.1.153+)
 
@@ -206,7 +206,7 @@ make install
 # Binary installed to ~/.claude/hud/howl
 ```
 
-The Makefile automatically configures your settings.json.
+`make install` copies the binary and prints the `statusLine` block to add to `~/.claude/settings.json`; it does not edit the file. Add the block shown under [Method 2](#method-2-direct-binary-download-) yourself, or run `scripts/install.sh`, which does.
 
 ---
 
@@ -233,8 +233,9 @@ With it on, updates arrive on their own:
 1. Claude Code refreshes the plugin after session start, with a delay of up to ten minutes.
 2. The plugin's `SessionStart` hook notices the version changed and re-downloads the matching binary in the background.
 
-The hook is a no-op with no network when already in sync, only ever updates an
-existing install, and never blocks session start. Your configuration at
+Keeping the binary in step is a no-op with no download when the versions already
+match; the hook only ever updates an existing install and never blocks session
+start. Its one network call is the daily update check described next. Your configuration at
 `~/.claude/hud/config.json` is preserved across updates.
 
 To update immediately instead of waiting:
@@ -446,7 +447,7 @@ howl/
 - **config.go** — Configuration system with presets, feature toggles, and 15 customizable thresholds
 - **types.go** — StdinData schema matching Claude Code's JSON output, model tier classification
 - **metrics.go** — Cache efficiency, API ratio, cost velocity calculations
-- **render.go** — ANSI color codes, adaptive layouts (normal 2-4 lines / danger 2 lines), threshold-driven colors
+- **render.go** — ANSI color codes, adaptive layouts (normal up to 4 lines / danger 2 lines), threshold-driven colors
 - **git.go** — Branch detection with graceful 1s timeout
 - **usage.go** — Pure `rate_limits` → quota converter (no network/Keychain/cache)
 - **transcript.go** — Tool usage extraction from conversation history (last ~100 lines)
