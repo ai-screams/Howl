@@ -48,7 +48,9 @@ COLORS = {
 DIM = (151, 155, 173)
 
 SGR = re.compile(r"\x1b\[([0-9;]*)m")
-OSC = re.compile(r"\x1b\]8;;[^\x1b]*\x1b\\")
+# OSC 8 hyperlinks, both the opening form with a URL and the closing form with none;
+# Howl terminates them with BEL (see osc8Link in internal/render.go), other emitters with ST.
+OSC = re.compile(r"\x1b\]8;;[^\x07\x1b]*(?:\x07|\x1b\\)")
 
 EMAIL = "commander@ai-scream.ai"
 TRANSCRIPT = [
