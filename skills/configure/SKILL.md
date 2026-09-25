@@ -9,12 +9,12 @@ Help the user choose a display preset for their Howl statusline HUD.
 
 ## Available Presets
 
-| Preset           | Lines | Best For            | Displays                                |
-| ---------------- | ----- | ------------------- | --------------------------------------- |
-| **full**         | 2-4   | Complete visibility | All metrics (default)                   |
-| **minimal**      | 1     | Clean workspace     | Model + Context + Cost + Duration       |
-| **developer**    | 2     | Coding focus        | + Account + Git + Changes + Cache + Vim |
-| **cost-focused** | 2     | Budget tracking     | + Quota + API Wait + Cost Velocity      |
+| Preset           | Lines   | Best For            | Displays (on top of model, context, cost, duration and the version line)                              |
+| ---------------- | ------- | ------------------- | ----------------------------------------------------------------------------------------------------- |
+| **full**         | up to 4 | Complete visibility | Every toggle on (default)                                                                             |
+| **minimal**      | 2       | Clean workspace     | Nothing else                                                                                          |
+| **developer**    | up to 4 | Coding focus        | Account, git, changes, output tokens, quota, tools, agents, cache, vim (no API wait or cost velocity) |
+| **cost-focused** | up to 3 | Budget tracking     | Account, output tokens, quota, API wait, cost velocity (no git, tools or agents)                      |
 
 ## Process
 
@@ -23,10 +23,10 @@ Help the user choose a display preset for their Howl statusline HUD.
    - Question: "Which Howl statusline preset would you like to use?"
    - Header: "Display Preset"
    - Options (4):
-     - Label: "full (default)" | Description: "Complete visibility - All metrics (2-4 lines)"
-     - Label: "minimal" | Description: "Clean workspace - Model + Context + Cost + Duration only (1 line)"
-     - Label: "developer" | Description: "Coding focus - full minus API wait, cost velocity and agent name (2 lines)"
-     - Label: "cost-focused" | Description: "Budget tracking - Account, Output tokens, Quota, API wait, Cost velocity (2 lines)"
+     - Label: "full (default)" | Description: "Complete visibility - All metrics (up to 4 lines)"
+     - Label: "minimal" | Description: "Clean workspace - Model + Context + Cost + Duration only (2 lines: the first line and the version line)"
+     - Label: "developer" | Description: "Coding focus - full minus API wait, cost velocity and agent name (up to 4 lines)"
+     - Label: "cost-focused" | Description: "Budget tracking - Account, Output tokens, Quota, API wait, Cost velocity (up to 3 lines)"
 
 2. **Show a preview** of their chosen preset:
 
@@ -71,7 +71,7 @@ Help the user choose a display preset for their Howl statusline HUD.
    ```
 
 4. **Confirm** the change:
-   "✅ Preset set to **CHOSEN_PRESET**. Changes will appear in the next statusline refresh (~300ms)."
+   "✅ Preset set to **CHOSEN_PRESET**. Changes will appear on the next statusline refresh (the next event, or the `refreshInterval` timer when one is configured (the installer defaults it to 10 seconds))."
 
 ## Reset to Default
 
@@ -113,7 +113,7 @@ This behavior cannot be disabled - it's a safety feature. The trigger point can 
 
 ### Refresh Rate
 
-Configuration changes apply on the next statusline refresh, which occurs approximately every 300ms. You don't need to restart Claude Code.
+Configuration changes apply on the next statusline refresh, which is the next event, or the `refreshInterval` timer when one is configured (the installer defaults it to 10 seconds). You don't need to restart Claude Code.
 
 ## Example Dialogue
 
@@ -129,7 +129,7 @@ Agent: Here's what minimal will look like:
 [Sonnet 4.5] | ████░░░░░░░░░░░░░░░░ 21% (210K/1M) | $32.7 | 2h46m
 
 Applying configuration...
-✅ Preset set to minimal. Changes will appear in ~300ms.
+✅ Preset set to minimal. Changes will appear on the next refresh (the next event, or the `refreshInterval` timer when one is configured (the installer defaults it to 10 seconds)).
 
 Note: At the danger threshold (default 85%), Howl will temporarily show full info for safety.
 You can adjust this via /howl:threshold.
