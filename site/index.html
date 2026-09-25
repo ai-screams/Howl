@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Howl — statusline HUD for Claude Code</title>
+<meta name="description" content="Context, quota, cache and cost in the Claude Code status line. A Go binary with no dependencies, rendered in about 10ms.">
+<link rel="canonical" href="https://ai-scream.ai/Howl/">
+<meta name="theme-color" content="#1c1e2b">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Howl — statusline HUD for Claude Code">
+<meta property="og:description" content="Your AI screams. Howl listens. Context, quota, cache and cost in the status line, with no dependencies.">
+<meta property="og:url" content="https://ai-scream.ai/Howl/">
+<meta property="og:image" content="https://ai-scream.ai/Howl/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preload" href="fonts/BricolageGrotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:"Bricolage Grotesque";font-style:normal;font-weight:500 800;font-display:swap;src:url(fonts/BricolageGrotesque-latin.woff2) format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/JetBrainsMono-Regular.woff2) format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/JetBrainsMono-Bold.woff2) format("woff2")}
+:root{
+  color-scheme:dark;
+  --bg:#1c1e2b; --card:#262939; --card2:#2f3245; --rule:#3b3f55; --text:#e6e8f0; --muted:#8e93a8;
+  --lime:#c3ee7c; --gold:#e8c66a; --pink:#c86791;
+  --display:"Bricolage Grotesque",-apple-system,BlinkMacSystemFont,sans-serif;
+  --body:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.65 var(--body);padding-inline:clamp(16px,4vw,48px)}
+a{color:inherit}
+a:focus-visible,button:focus-visible{outline:2px solid var(--lime);outline-offset:3px}
+.install button:focus-visible{outline-offset:-3px}
+.wrap{max-width:1040px;margin:0 auto;position:relative}
+nav{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:24px;font-size:14px}
+.mark{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.01em;text-decoration:none}
+.mark svg{display:block}
+nav ul{display:flex;gap:8px;list-style:none;margin:0;padding:0}
+nav ul a{text-decoration:none;color:var(--muted);padding:8px 12px;border-radius:8px}
+nav ul a:hover{background:var(--card);color:var(--text)}
+.hero{position:relative;text-align:center;padding-block:56px 40px;display:grid;gap:24px;justify-items:center}
+.meta{margin:0;font:14px var(--mono);letter-spacing:.08em;color:var(--muted)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(48px,7.5vw,88px);line-height:1;letter-spacing:-.03em;margin:0;text-wrap:balance;max-width:12ch}
+h1 span{color:var(--lime)}
+.lead{max-width:58ch;color:var(--muted);font-size:20px;margin:0}
+.cta{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+.btn{font:600 16px var(--body);border-radius:8px;padding:12px 24px;text-decoration:none;cursor:pointer;border:1px solid transparent}
+.btn-p{background:var(--lime);color:#1c1e2b}
+.btn-p:hover{background:#d9f7a0}
+.btn-s{background:var(--card);color:var(--text);border-color:var(--rule)}
+.btn-s:hover{border-color:var(--muted)}
+
+.hud-frame{width:100%;border:1px solid var(--rule);border-radius:12px;background:#2f3245;box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.03) inset;overflow:hidden;text-align:left}
+.hud-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:12px 16px;background:#272a3b;border-bottom:1px solid #3b3f55}
+.dots{display:flex;gap:8px}.dots i{width:10px;height:10px;border-radius:50%;background:#4a4e66;display:block}
+.tabs{display:flex;flex-wrap:wrap;gap:4px}
+.tabs button,.seg button{font:600 14px var(--body);color:#aeb3c7;background:transparent;border:0;border-radius:8px;padding:8px 12px;min-height:40px;cursor:pointer}
+.tabs button:hover,.seg button:hover{color:var(--text);background:#3b3f55}
+.tabs button[aria-pressed="true"]{background:#3b3f55;color:var(--text)}
+.seg{display:flex;gap:2px;background:#1f2231;border-radius:8px;padding:2px}
+.seg button[aria-pressed="true"]{background:var(--lime);color:#1c1e2b}
+.seg button[disabled]{opacity:.35;cursor:default}
+.hud{color:#d8dbe6;font:14px/1.75 var(--mono);padding:16px;overflow-x:auto;white-space:pre;font-variant-numeric:tabular-nums;margin:0;min-height:calc(14px*1.75*4 + 32px)}
+.hud .sep{color:#5b5d67}.hud .grey{color:#a3a7b8}.hud .dim{color:#979bad}.hud .gold{color:#e8c66a}.hud .lime{color:#c3ee7c}.hud .pink{color:#c86791}.hud .orange{color:#ff8700}.hud .blue{color:#7ba4e8}.hud .cyan{color:#6ccbd9}.hud .b{font-weight:700}
+.hud-foot{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;padding:8px 16px;border-top:1px solid #3b3f55;font:14px var(--mono);color:#a3a7b8}
+
+.install{width:100%;max-width:640px;display:grid;grid-template-columns:1fr auto;border:1px solid var(--rule);border-radius:12px;background:var(--card);overflow:hidden;text-align:left}
+.install pre{margin:0;padding:16px;font:14px/1.7 var(--mono);overflow-x:auto}
+.install pre b{color:var(--lime);font-weight:400}
+.install button{font:600 14px var(--body);background:var(--card2);color:var(--text);border:0;border-left:1px solid var(--rule);padding:0 16px;cursor:pointer}
+.install button:hover{background:#3b3f55}
+section{position:relative;padding-block:56px}
+h2{font-family:var(--display);font-weight:700;font-size:clamp(32px,4vw,48px);line-height:1.05;letter-spacing:-.02em;margin:0 0 12px;text-align:left;max-width:24ch;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 32px;max-width:60ch;text-align:left}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
+.card{background:transparent;border:0;border-top:2px solid var(--rule);border-radius:0;padding:16px 0 0;display:grid;gap:8px;align-content:start}
+.card .seg-ex{font-family:var(--mono);font-size:14px;background:#2f3245;border-radius:4px;padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#d8dbe6}
+.card h3{font-family:var(--display);font-weight:700;font-size:20px;margin:4px 0 0}
+.card p{margin:0;color:var(--muted);font-size:16px}
+.presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.preset{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:16px;text-align:left;cursor:pointer;color:inherit;font:inherit}
+.preset:hover{border-color:var(--lime)}
+.preset code{font-family:var(--mono);font-size:14px;color:var(--gold)}
+.preset p{margin:8px 0 0;color:var(--muted);font-size:14px}
+.support{margin:0;padding-block:24px 0;color:var(--muted);font-size:14px;max-width:60ch}
+footer{padding-block:32px 40px;border-top:1px solid var(--rule);display:flex;flex-wrap:wrap;gap:8px 32px;justify-content:space-between;font-size:14px;color:var(--muted)}
+footer a{text-decoration:none}footer a:hover{color:var(--text)}
+@media (max-width:560px){.install{grid-template-columns:1fr}.install button{padding:12px;border-left:0;border-top:1px solid var(--rule)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <a class="mark" href="#top" aria-label="Howl"><svg width="26" height="20" viewBox="0 0 26 20" aria-hidden="true"><g fill="#c3ee7c"><rect x="0" y="8" width="3" height="4"/><rect x="5" y="4" width="3" height="12"/><rect x="10" y="0" width="3" height="20"/><rect x="15" y="4" width="3" height="12"/><rect x="20" y="8" width="3" height="4"/></g></svg>Howl</a>
+  <ul><li><a href="#features">Features</a></li><li><a href="#install">Install</a></li><li><a href="https://github.com/ai-screams/howl">GitHub</a></li></ul>
+</nav>
+
+<header class="hero" id="top">
+  <p class="meta">STATUSLINE HUD FOR CLAUDE CODE · GO · ~10MS</p>
+  <h1>Your AI screams. <span>Howl</span> listens.</h1>
+  <p class="lead">Context, quota, cache and cost in the status line. Read from stdin, computed in Go, rendered before you notice. No network calls, no dependencies.</p>
+  <div class="cta"><a class="btn btn-p" href="#install">Install the plugin</a><a class="btn btn-s" href="https://github.com/ai-screams/howl/releases/latest">Download binary</a></div>
+
+  <div class="hud-frame" id="hud">
+    <div class="hud-bar">
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      <div class="tabs" role="group" aria-label="Preset">
+        <button type="button" data-preset="full" aria-pressed="true">Full</button>
+        <button type="button" data-preset="developer" aria-pressed="false">Developer</button>
+        <button type="button" data-preset="cost-focused" aria-pressed="false">Cost-focused</button>
+        <button type="button" data-preset="minimal" aria-pressed="false">Minimal</button>
+        <button type="button" data-preset="subagent" aria-pressed="false">Subagent rows</button>
+      </div>
+      <div class="seg" role="group" aria-label="Mode">
+        <button type="button" data-mode="auto" aria-pressed="true">Auto</button>
+        <button type="button" data-mode="normal" aria-pressed="false">Normal</button>
+        <button type="button" data-mode="danger" aria-pressed="false">Danger</button>
+      </div>
+    </div>
+    <pre class="hud" id="hud-lines"><span class="gold b">[Opus 4.6]</span><span class="sep"> | </span><span class="grey">commander@ai-scream.ai</span><span class="sep"> | </span><span class="pink">main*</span><span class="sep"> | </span><span class="grey">Out:1K</span><span class="sep"> | </span><span class="pink b">$185.4</span><span class="sep"> | </span>91h12m
+<span class="lime">████░░░░░░</span>  41% ( 82K/200K)<span class="sep"> | </span><span class="lime">█████████░</span>  94% (4h37m/5h)<span class="sep"> | </span><span class="lime">███████░░░</span>  79% (2d21h/7d)
+<span class="grey">Δ</span><span class="lime">+3.4K</span>/<span class="pink">-1.3K</span><span class="sep"> | </span><span class="grey">Cache:</span><span class="lime">99%</span><span class="grey">(W:0K/R:82K)</span><span class="sep"> | </span><span class="grey">Wait:</span><span class="lime">6%</span><span class="sep"> | </span><span class="grey">Cost:</span><span class="lime">$0.03/m</span><span class="sep"> | </span><span class="lime">Insert</span><span class="sep"> | </span><span class="grey">v2.1.39</span>
+<span class="blue">Bash</span>(5) <span class="blue">Edit</span>(1) <span class="blue">Read</span>(3)<span class="sep"> | </span><span class="gold">▶</span><span class="cyan">explore</span></pre>
+    <div class="hud-foot"><span id="hud-state">full · normal mode · 4 lines</span><span id="hud-note">every toggle on</span></div>
+  </div>
+</header>
+
+<section id="features">
+  <h2>Context, quota, cache and cost at a glance</h2>
+  <p class="sub">Every segment is one metric with its own color thresholds. Turn any of them off.</p>
+  <div class="grid">
+    <div class="card"><div class="seg-ex"><span style="color:#ff8700">████████░░</span> 71% <span style="color:#a3a7b8">(142K/200K)</span></div><h3>Context health</h3><p>A ten-character bar with absolute tokens, not just a percentage. Formats as K or M, so a 1M window reads the same way.</p></div>
+    <div class="card"><div class="seg-ex"><span style="color:#c3ee7c">█████████░</span> 94% <span style="color:#a3a7b8">(4h37m/5h)</span></div><h3>Quota windows</h3><p>The 5-hour and 7-day limits with time to reset, taken from the <code>rate_limits</code> field Claude Code already sends.</p></div>
+    <div class="card"><div class="seg-ex">Cache:<span style="color:#c3ee7c">99%</span> <span style="color:#5b5d67">|</span> Wait:<span style="color:#c3ee7c">6%</span></div><h3>Cache and wait</h3><p>How much of the last call hit the prompt cache, and what share of the session was spent waiting on the API.</p></div>
+    <div class="card"><div class="seg-ex">Cost:<span style="color:#c3ee7c">$0.03/m</span> <span style="color:#5b5d67">|</span> <span style="color:#c86791;font-weight:700">$185.4</span></div><h3>Cost velocity</h3><p>Dollars per minute next to the session total. <span id="threshold-count">Fifteen</span> thresholds decide when each color changes.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Past 85%, it gets out of the way</h2>
+  <p class="sub">When context crosses the danger threshold, Howl collapses to two dense lines: tokens left, time left, and the numbers that still matter. Use the controls above the HUD to switch presets and modes, or click a preset here.</p>
+  <div class="presets">
+    <button class="preset" type="button" data-preset="full"><code>full</code><p>Everything on. Git, tools, agents, cache, wait, cost velocity, vim mode.</p></button>
+    <button class="preset" type="button" data-preset="minimal"><code>minimal</code><p>Model, context bar, cost, duration and the version line.</p></button>
+    <button class="preset" type="button" data-preset="developer"><code>developer</code><p>Git, line changes, tools, agents, cache and vim mode. No cost velocity.</p></button>
+    <button class="preset" type="button" data-preset="cost-focused"><code>cost-focused</code><p>Quota, API wait, cost velocity and output tokens. No git or tools.</p></button>
+  </div>
+</section>
+
+<section id="install">
+  <h2>Install from Claude Code</h2>
+  <p class="sub">Howl ships as a Claude Code plugin from its own marketplace. Setup downloads the binary for your OS and writes the status line setting for you.</p>
+  <div class="install">
+    <pre id="cmd-install"><b>/plugin</b> marketplace add ai-screams/howl
+<b>/plugin</b> install howl@ai-screams-howl
+<b>/howl:setup</b></pre>
+    <button type="button" data-copy="cmd-install">Copy</button>
+  </div>
+</section>
+
+<p class="support">Howl is free and MIT licensed. If it earns a place in your terminal, <a href="https://github.com/sponsors/ai-screams">sponsoring on GitHub</a> helps keep it maintained.</p>
+
+<footer>
+  <span>An <a href="https://ai-scream.ai">Ai-Scream</a> project · MIT</span>
+  <span><a href="https://github.com/ai-screams/howl">GitHub</a> · <a href="https://github.com/ai-screams/howl/releases">Releases</a></span>
+</footer>
+</div>
+
+<script type="application/json" id="howl-config">{"presets":{"full":{"account":true,"git":true,"line_changes":true,"output_tokens":true,"quota":true,"tools":true,"agents":true,"cache_efficiency":true,"api_wait_ratio":true,"cost_velocity":true,"vim_mode":true,"agent_name":true},"minimal":{},"developer":{"account":true,"git":true,"line_changes":true,"output_tokens":true,"quota":true,"tools":true,"agents":true,"cache_efficiency":true,"vim_mode":true},"cost-focused":{"account":true,"output_tokens":true,"quota":true,"api_wait_ratio":true,"cost_velocity":true}},"thresholds":{"context_danger":85,"context_warning":70,"context_moderate":50,"session_cost_high":5,"session_cost_medium":1,"cache_excellent":80,"cache_good":50,"wait_high":60,"wait_medium":35,"cost_velocity_high":0.5,"cost_velocity_medium":0.1,"quota_critical":10,"quota_low":25,"quota_medium":50,"quota_high":75}}</script>
+<script>
+(function(){
+  // A JavaScript copy of internal/render.go's line layout (renderNormalMode,
+  // renderDangerMode) and internal/subagent.go's row format, driven by the
+  // preset toggles and thresholds in #howl-config. internal/site_test.go keeps
+  // that block equal to config.go; a change to which segments a line carries
+  // must be mirrored here by hand. Colors follow the terminal theme in the
+  // README screenshots: green→lime, yellow→gold, red and magenta→pink, 208→orange.
+  const el=document.getElementById('hud-lines'),lab=document.getElementById('hud-state'),note=document.getElementById('hud-note');
+  if(!el)return;
+  const CFG=JSON.parse(document.getElementById('howl-config').textContent);
+  const PRESETS=CFG.presets,T=CFG.thresholds;
+  const tc=document.getElementById('threshold-count');if(tc)tc.textContent=String(Object.keys(T).length);
+  const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const NOTES={
+    'full':'every toggle on',
+    'developer':'no API wait, no cost velocity',
+    'cost-focused':'no git, tools or agents',
+    'minimal':'all toggles off · context bar moves into line 1',
+    'subagent':'howl --subagent · one row per running agent'
+  };
+
+  const span=(c,s)=>`<span class="${c}">${s}</span>`;
+  const SEP=span('sep',' | ');
+  const bar=p=>{const n=Math.max(0,Math.min(Math.floor(10*p/100),10));return '█'.repeat(n)+'░'.repeat(10-n)};
+  const pad3=n=>String(n).padStart(3,' ');
+  const ctxColor=p=>p>=T.context_danger?'pink b':p>=T.context_warning?'orange':p>=T.context_moderate?'gold':'lime';
+  const quotaColor=r=>r<T.quota_critical?'pink b':r<T.quota_low?'pink':r<T.quota_medium?'orange':r<T.quota_high?'gold':'lime';
+  const cacheColor=p=>p>=T.cache_excellent?'lime':p>=T.cache_good?'gold':'pink';
+  const waitColor=p=>p>=T.wait_high?'pink':p>=T.wait_medium?'gold':'lime';
+  const velColor=v=>v>=T.cost_velocity_high?'pink b':v>=T.cost_velocity_medium?'gold':'lime';
+  const tokK=n=>Math.round(n/1000)+'K';
+  const dur=m=>m<1?span('grey','<1m'):m<60?m+'m':Math.floor(m/60)+'h'+(m%60)+'m';
+
+  // Sample session. Only pct, cost and minutes move.
+  const D={model:'Opus 4.6',ctx:200000,email:'commander@ai-scream.ai',branch:'main',dirty:true,project:'Howl',
+    added:3412,removed:1287,cacheW:0,wait:6,vel:0.03,out:1000,vim:'Insert',version:'2.1.39',
+    q5:{remain:94,until:'4h37m'},q7:{remain:79,until:'2d21h'},tools:[['Bash',5],['Edit',1],['Read',3]],agents:['explore']};
+  let pct=41,cost=185.4,mins=5472,preset='full',mode='auto';
+
+  function cost$(usd){const c=usd>=T.session_cost_high?'pink b':usd>=T.session_cost_medium?'gold':'';const s=usd<10?'$'+usd.toFixed(2):'$'+usd.toFixed(1);return c?span(c,s):s}
+  function contextBar(p){const used=Math.round(D.ctx*p/100);const total=tokK(D.ctx);const u=tokK(used).padStart(total.length,' ');
+    const prefix=p>=T.context_danger?'🔴 ':p>=T.context_warning?'⚠ ':'';return prefix+span(ctxColor(p),bar(p))+' '+pad3(p)+'% ('+u+'/'+total+')'}
+  function contextBarDanger(p){const remain=D.ctx-Math.round(D.ctx*p/100);let eta='';
+    if(p>0&&mins>0){const e=(100-p)*mins/p;if(e<1)eta=' ~<1m';else if(e<60)eta=' ~'+Math.round(e)+'m';else{const ei=Math.floor(e),h=Math.floor(ei/60),m=ei%60;eta=' ~'+h+'h'+(m?m+'m':'')}}
+    return '🔴 '+span(ctxColor(p),bar(p))+' '+pad3(p)+'% ('+tokK(remain)+' left'+eta+')'}
+  const quota=(q,label)=>span(quotaColor(q.remain),bar(q.remain))+' '+pad3(q.remain)+'% ('+q.until+'/'+label+')';
+  const lineChanges=()=>span('grey','Δ')+span('lime','+'+(D.added/1000).toFixed(1)+'K')+'/'+span('pink','-'+(D.removed/1000).toFixed(1)+'K');
+  const cacheLabeled=(p,r)=>span('grey','Cache:')+span(cacheColor(p),p+'%')+span('grey','(W:'+tokK(D.cacheW)+'/R:'+tokK(r)+')');
+  const tools=()=>D.tools.map(([n,c])=>span('blue',n)+'('+c+')').join(' ');
+  const agents=()=>span('gold','▶')+D.agents.map(a=>span('cyan',a)).join(',');
+
+  function normal(f){
+    const hasQuota=!!f.quota;
+    const l1=[span('gold b','['+D.model+']')];
+    if(!hasQuota)l1.push(contextBar(pct));
+    if(f.account)l1.push(span('grey',D.email));
+    if(f.git)l1.push(span('pink',D.branch+(D.dirty?'*':'')));
+    if(f.output_tokens)l1.push(span('grey','Out:'+tokK(D.out)));
+    l1.push(cost$(cost));
+    l1.push(dur(mins));
+    const lines=[l1.join(SEP)];
+    if(hasQuota)lines.push([contextBar(pct),quota(D.q5,'5h'),quota(D.q7,'7d')].join(SEP));
+    const l3=[];
+    if(f.line_changes)l3.push(lineChanges());
+    if(f.cache_efficiency)l3.push(cacheLabeled(99,Math.round(D.ctx*pct/100)));
+    if(f.api_wait_ratio)l3.push(span('grey','Wait:')+span(waitColor(D.wait),D.wait+'%'));
+    if(f.cost_velocity)l3.push(span('grey','Cost:')+span(velColor(D.vel),'$'+D.vel.toFixed(2)+'/m'));
+    if(f.vim_mode)l3.push(span('lime',D.vim));
+    l3.push(span('grey','v'+D.version));
+    lines.push(l3.join(SEP));
+    const l4=[];
+    if(f.tools)l4.push(tools());
+    if(f.agents)l4.push(agents());
+    if(l4.length)lines.push(l4.join(SEP));
+    return lines;
+  }
+  function danger(){
+    const l1=[span('gold b','['+D.model+']'),contextBarDanger(pct),quota(D.q5,'5h'),quota(D.q7,'7d')];
+    const l2=[span('grey',D.project+'/')+span('pink',D.branch+(D.dirty?'*':'')),lineChanges(),
+      span('grey','In:0K')+' '+span('grey','Out:'+tokK(D.out)),span(cacheColor(99),'C99%'),
+      cost$(cost)+' '+span('gold','$'+(D.vel*60).toFixed(1)+'/h'),dur(mins)];
+    return [l1.join(SEP),l2.join(SEP)];
+  }
+  function subagentRows(){
+    const dot=span('grey',' · ');
+    const row=(name,status,pctv,tok,effort,desc)=>{const s=[span('cyan',name)];if(status)s.push(span('grey',status));if(!tok&&desc)s.push(span('grey',desc));
+      if(tok)s.push(span(ctxColor(pctv),pctv+'%')+' '+span('grey','('+tokK(tok)+')'));if(effort)s.push(span('dim','E:'+effort));return s.join(dot)};
+    return [row('explore','running',45,90000,'high'),row('code-reviewer','running',12,24000,'medium'),row('test-engineer','running',0,0,'','Harden the flaky git tests')];
+  }
+
+  function render(){
+    let lines,state;
+    if(preset==='subagent'){lines=subagentRows();state='agent panel · '+lines.length+' rows';}
+    else{
+      const isDanger=mode==='danger'||(mode==='auto'&&pct>=T.context_danger);
+      lines=isDanger?danger():normal(PRESETS[preset]);
+      state=preset+' · '+(isDanger?'danger':'normal')+' mode · '+lines.length+(lines.length===1?' line':' lines');
+    }
+    el.innerHTML=lines.join('\n');
+    lab.textContent=state; note.textContent=NOTES[preset];
+    document.querySelectorAll('.seg button').forEach(b=>b.disabled=preset==='subagent');
+  }
+  function setPreset(p){preset=p;document.querySelectorAll('[data-preset]').forEach(b=>{if(b.hasAttribute('aria-pressed'))b.setAttribute('aria-pressed',String(b.dataset.preset===p))});render();}
+  function setMode(m){mode=m;if(m==='danger'&&pct<T.context_danger)pct=86;if(m==='normal'&&pct>=T.context_danger)pct=41;document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m)));render();}
+  document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{setPreset(b.dataset.preset);if(b.classList.contains('preset'))document.getElementById('hud').scrollIntoView({behavior:reduce?'auto':'smooth',block:'center'});}));
+  document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+  render();
+  if(!reduce)setInterval(()=>{
+    pct+=1;cost+=0.1;mins+=2;
+    if(mode==='auto'&&pct>93){pct=41;cost=185.4;mins=5472;}
+    if(mode==='normal'&&pct>=T.context_danger-1){pct=41;}
+    if(mode==='danger'&&pct>96){pct=86;}
+    render();
+  },700);
+
+  document.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click',()=>{
+    const src=document.getElementById(b.dataset.copy),t=src.innerText;
+    const done=()=>{b.textContent='Copied';setTimeout(()=>b.textContent='Copy',1500)};
+    (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t).then(done):Promise.reject()).catch(()=>{const r=document.createRange();r.selectNodeContents(src);const s=getSelection();s.removeAllRanges();s.addRange(r);});
+  }));
+})();
+</script>
+</body>
+</html>
