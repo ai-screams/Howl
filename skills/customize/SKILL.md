@@ -39,9 +39,9 @@ Advanced configuration for Howl statusline: choose a base preset, then toggle in
   - Label: **"minimal"**  
     Description: "Model + Context + Cost + Duration, plus the version line (2 lines)"
   - Label: **"developer"**  
-    Description: "Coding focus: full minus API wait, cost velocity and agent name (2 lines)"
+    Description: "Coding focus: full minus API wait, cost velocity and agent name (up to 4 lines)"
   - Label: **"cost-focused"**  
-    Description: "Budget tracking: Account, Output tokens, Quota, API wait, Cost velocity (2 lines)"
+    Description: "Budget tracking: Account, Output tokens, Quota, API wait, Cost velocity (3 lines)"
 
 **Store the user's selection as `chosenPreset`.**
 
@@ -170,7 +170,7 @@ Preview (example):
 Δ+3.4K/-1.3K | Cache:99%(W:0K/R:82K) | Insert | v2.1.272
 Bash(5) Read(3) Edit(1)
 
-Changes apply on the next refresh: the next event, or the `refreshInterval` timer (10 s as `/howl:setup` sets it).
+Changes apply on the next refresh: the next event, or the `refreshInterval` timer when one is configured (the installer defaults it to 10 seconds).
 ```
 
 ## Examples
@@ -252,7 +252,7 @@ Danger mode ignores the toggles and always prints its own two lines.
 
 ### Refresh Rate
 
-Configuration changes apply on the next statusline refresh — the next event, or the `refreshInterval` timer, which `/howl:setup` sets to 10 seconds. No restart needed.
+Configuration changes apply on the next statusline refresh — the next event, or the `refreshInterval` timer when one is configured (the installer defaults it to 10 seconds). No restart needed.
 
 ### Quick Switch Between Presets
 
@@ -280,5 +280,5 @@ Applying configuration...
 ✅ Config applied: developer + api_wait_ratio
 Preview: [Opus 4.6] | user@example.com | main* | ...
 
-Changes apply on the next refresh (at most the 10-second `refreshInterval`).
+Changes apply on the next refresh (the next event, or the `refreshInterval` timer when one is configured (the installer defaults it to 10 seconds)).
 ```
