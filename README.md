@@ -620,6 +620,8 @@ Howl started because the status line is the one place a coding session can be wa
 - **Width-aware** — the tool and agent line fits the terminal's `COLUMNS`
 - **Every string sanitized** — nothing from a transcript, branch name or session name can reach the terminal as an escape sequence
 
+<br clear="all">
+
 ---
 
 <a name="roadmap"></a>
@@ -641,6 +643,8 @@ Shipped items move to [CHANGELOG.md](CHANGELOG.md).
 <img src="assets/mascot-howling.png" width="224" align="right" alt="Howl's mascot howling, sound spreading in three arcs">
 
 This is a personal tool for the AiScream project. Feedback and bug reports welcome!
+
+<br clear="all">
 
 ---
 
