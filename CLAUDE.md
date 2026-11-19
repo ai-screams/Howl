@@ -94,6 +94,8 @@ Active via `git config core.hooksPath .githooks`. Runs: go format, prettier (md/
 
 The hook exits before any check when golangci-lint or prettier is missing from both `PATH` and `$(go env GOPATH)/bin`, so no commit is possible at all. `make setup` installs only prettier; install golangci-lint separately (CI pins the version in `quality-lint.yaml`).
 
+`PRETTIER` and `GOLANGCI_LINT` override both lookups, e.g. `PRETTIER=/path/to/prettier git commit`. If a Go version manager gives each Go version its own GOPATH (goenv can), a Go upgrade leaves the tools in the old GOPATH and the hook stops finding them. Reinstall into the new GOPATH at the version the old binary reports (`go version -m <old>/bin/prettier`) rather than through `make setup`, which installs `@latest` and can format differently.
+
 If prettier fails on SECURITY.md or CHANGELOG.md tables, run `make fmt-docs` to auto-fix.
 
 prettier (go-prettier) skips paths listed in `.git/info/exclude`, so an excluded directory is never format-checked. Before un-excluding one, run `make fmt-docs` and commit the formatting on its own; a fenced block labelled `bash` gets its literal output reflowed, so label command output `text`.
