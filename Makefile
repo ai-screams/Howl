@@ -8,7 +8,7 @@ VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 LDFLAGS := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT)
 
-.PHONY: build install clean test unit-test lint fmt fmt-docs check setup release-dry release-check
+.PHONY: build install clean test unit-test plugin-test lint fmt fmt-docs check setup release-dry release-check
 
 build:
 	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY) ./cmd/howl
@@ -29,6 +29,10 @@ test: build
 unit-test:
 	go test ./... -v -cover -coverprofile=coverage.out
 	@go tool cover -func=coverage.out | grep total
+
+# Needs Claude Code 2.1.326+ on PATH, so CI does not run it.
+plugin-test:
+	claude plugin test .
 
 lint:
 	$(GOLANGCI_LINT) run --timeout=3m ./...

@@ -15,6 +15,7 @@ make build         # CGO_ENABLED=0 go build → build/howl
 make install       # build + copy to ~/.claude/hud/howl
 make unit-test     # go test ./... -v -cover -coverprofile=coverage.out
 make test          # smoke test: pipes sample JSON into built binary
+make plugin-test   # claude plugin test: the agent-row mod (local only, needs CC 2.1.326+)
 make lint          # golangci-lint run
 make fmt           # go fmt ./...
 make fmt-docs      # prettier on *.md *.yaml *.yml
@@ -59,6 +60,15 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 - **update.go** — `ReadUpdateNotice()`: reads `~/.claude/hud/.update-available`, written by the plugin's session-start hook. Never fetches — the render path stays offline
 - **subagent.go** — `RenderSubagentRows()`: serves the `subagentStatusLine` setting via `howl --subagent`. Separate input schema (camelCase field names, unlike the main snake_case one); writes one `{"id","content"}` JSON line per agent-panel row it overrides
 
+### hooks/agent-row.ts — the only non-Go runtime code
+
+A mod (Claude Code hooks module, named under `modules` in `hooks/hooks.json`) that hooks `ui.render` on `AgentRow`, CC 2.1.326+. It holds no rendering: it pipes one row to `howl --subagent` in the `subagentStatusLine` schema and sets `body` to what comes back, so segment changes stay in `subagent.go`.
+
+- **An empty `body` hides the row.** No content means `next(e)`.
+- **`status` is `props.taskStatus`**, not `props.status`: the schema has always carried the task's status.
+- **A `body` that arrives set wins**: a `subagentStatusLine` setting already drew that row.
+- **Never run `claude --plugin-dir .` from this checkout.** The SessionStart hook sees a new plugin data dir and runs `install.sh` over the installed binary, and the engine writes a `tsconfig.json` at the root. Copy `.claude-plugin/` and the module into a scratch directory with a `hooks.json` that names only the module.
+
 ### Test Conventions
 
 ~98% coverage. Every source file except `constants.go` has a `_test.go` pair plus `integration_test.go` for full pipeline tests and `schema_test.go`, which decodes a real captured payload so a wrong `json:"…"` tag cannot pass unnoticed.
@@ -66,6 +76,7 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 - **git_test.go** creates real git repos in `t.TempDir()`
 - **fuzz_test.go** fuzzes `visibleLen`, `fitParts`, `RenderSubagentRow`, and `ReadUpdateNotice` — the escape-sequence and truncation paths where byte/rune and index mistakes hide
 - **cmd/howl/main_test.go** does E2E binary execution: builds the binary, pipes JSON via `exec.Command`
+- **plugin_test.go** checks that every module `hooks/hooks.json` names exists. CI has no Claude Code, so it does not run `hooks/agent-row.test.ts`; run `make plugin-test` after touching the mod
 - **integration_test.go** tests the full JSON → Unmarshal → ComputeMetrics → Render pipeline
 - **Re-introduce the bug to prove a new test catches it.** Two regression tests here passed with their bug still present: one chose multi-byte inputs that were also long in runes, so a byte-vs-rune slice worked by accident (the trigger needs byte length over the bound and rune length under it); the other stripped ANSI before asserting, which erased the injected escape it was looking for.
 

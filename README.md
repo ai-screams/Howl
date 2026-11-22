@@ -419,6 +419,9 @@ howl/
 │   ├── subagent.go          # Agent panel rows (howl --subagent)
 │   ├── *_test.go            # Unit, integration, schema, fuzz and site tests
 │   └── testdata/            # Captured payload and JSONL fixtures
+├── hooks/
+│   ├── hooks.json           # Session-start sync, agent-row mod
+│   └── agent-row.ts         # Agent panel mod, calls howl --subagent
 ├── site/                    # Product page, deployed to ai-scream.ai/Howl/
 ├── docs/
 │   ├── brand.md             # Icon, colors, sizes, mascots
