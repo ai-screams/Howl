@@ -15,12 +15,12 @@ Install and configure the Howl statusline HUD for Claude Code.
 4. Tells the user to restart Claude Code
 
 Step 3 is why this skill exists. A plugin cannot set `statusLine` itself —
-Claude Code allows only the `agent` and `subagentStatusLine` keys in a plugin's
-own settings — so the main status line has to be written into the user's
-settings by something running as the user. That is this script.
+Claude Code does not accept that key in a plugin's own settings — so the main
+status line has to be written into the user's settings by something running as
+the user. That is this script.
 
-The agent panel needs no such step: the plugin ships `subagentStatusLine`
-directly, so per-subagent rows start working as soon as the binary exists.
+The agent panel needs no such step: on Claude Code 2.1.326 and later the plugin
+ships a mod that draws per-subagent rows as soon as the binary exists.
 
 ## Installation
 

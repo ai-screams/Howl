@@ -24,7 +24,7 @@ func main() {
 			os.Exit(0)
 		case "-h", "--help":
 			fmt.Fprintln(os.Stderr, "howl: Claude Code statusline HUD. Reads JSON from stdin.")
-			fmt.Fprintln(os.Stderr, "  --subagent  render subagent panel rows (settings key: subagentStatusLine)")
+			fmt.Fprintln(os.Stderr, "  --subagent  render subagent panel rows (called by the plugin's agent-row mod)")
 			os.Exit(0)
 		case "--subagent":
 			runSubagent()
@@ -79,7 +79,8 @@ func main() {
 	}
 }
 
-// runSubagent serves the subagentStatusLine setting: it reads the agent panel's
+// runSubagent serves the agent-row mod (hooks/agent-row.ts) and the older
+// subagentStatusLine setting, which share a schema: it reads the agent panel's
 // task list and writes one JSON line per row it wants to override. A row Howl
 // says nothing about is left out so Claude Code keeps its default rendering.
 func runSubagent() {

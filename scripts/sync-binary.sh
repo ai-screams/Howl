@@ -5,10 +5,9 @@
 # Three jobs, all of which must stay cheap and must never block session start:
 #
 #   1. Nudge, once, when the plugin is installed but the statusline never was.
-#      Claude Code cannot configure `statusLine` from a plugin — only `agent`
-#      and `subagentStatusLine` are allowed there — so a user who installs the
-#      plugin and stops has a working set of skills and an empty status bar,
-#      with nothing telling them why.
+#      Claude Code cannot configure `statusLine` from a plugin, so a user who
+#      installs the plugin and stops has a working set of skills and an empty
+#      status bar, with nothing telling them why.
 #   2. Keep the binary in step with the plugin. Claude Code updates the plugin
 #      *content* from the marketplace; the binary is a separately-downloaded
 #      release artifact and would otherwise drift.

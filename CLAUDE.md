@@ -58,7 +58,7 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 - **transcript.go** — `ParseTranscript()`: tail-reads last 64KB/100 lines of JSONL, extracts top-5 tools + running agents
 - **account.go** — `GetAccountInfo()`: reads `~/.claude.json` for email display
 - **update.go** — `ReadUpdateNotice()`: reads `~/.claude/hud/.update-available`, written by the plugin's session-start hook. Never fetches — the render path stays offline
-- **subagent.go** — `RenderSubagentRows()`: serves the `subagentStatusLine` setting via `howl --subagent`. Separate input schema (camelCase field names, unlike the main snake_case one); writes one `{"id","content"}` JSON line per agent-panel row it overrides
+- **subagent.go** — `RenderSubagentRows()`: serves `howl --subagent`, called by the plugin's agent-row mod (and by a hand-written `subagentStatusLine` setting on CC 2.1.322 and earlier). Separate input schema (camelCase field names, unlike the main snake_case one); writes one `{"id","content"}` JSON line per agent-panel row it overrides
 
 ### hooks/agent-row.ts — the only non-Go runtime code
 
@@ -125,7 +125,7 @@ prettier (go-prettier) skips paths listed in `.git/info/exclude`, so an excluded
 
 The repo is both the marketplace (`.claude-plugin/marketplace.json`) and the plugin it serves. Two platform constraints shape the whole install flow:
 
-- **A plugin cannot set `statusLine`.** Only `agent` and `subagentStatusLine` are allowed in a plugin's own `settings.json`, which is why `/howl:setup` exists to write the user's settings. `subagentStatusLine` ships from the plugin and needs no setup.
+- **A plugin cannot set `statusLine`.** A plugin's own `settings.json` does not accept that key, which is why `/howl:setup` exists to write the user's settings. Agent rows ship as a mod and need no setup. Do not bring back a plugin `settings.json` with `subagentStatusLine`: CC 2.1.323–2.1.325 ignore it, and 2.1.326+ warns at every start and lets it shadow the mod.
 - **Auto-update is off by default for third-party marketplaces.** Without the `/plugin` → Marketplaces toggle, an install stays on its original version forever. The status line's own update badge exists to cover users who never find it.
 
 `scripts/sync-binary.sh` runs at SessionStart; its binary-sync step must stay a no-op with no download when in sync, and its only network call is the once-a-day release check for the update badge, never from the render path. Preset contents live in `presets` in `internal/config.go` — doc copies of them drifted for months; read the source.
