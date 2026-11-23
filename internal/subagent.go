@@ -6,8 +6,8 @@ import (
 	"strings"
 )
 
-// SubagentInput is the JSON object Claude Code pipes to a subagentStatusLine
-// command. It carries the common hook fields (ignored here), the usable row
+// SubagentInput is the JSON object a subagentStatusLine command is piped, and
+// what hooks/agent-row.ts sends for a single row. It carries the common hook fields (ignored here), the usable row
 // width, and one entry per visible subagent row.
 //
 // Unlike the main statusline schema, these field names are camelCase.

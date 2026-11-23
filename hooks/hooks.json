@@ -1,5 +1,6 @@
 {
-  "description": "Keep the Howl binary in sync with the installed plugin version on session start",
+  "description": "Keep the Howl binary in sync with the installed plugin version on session start, and draw the agent panel rows",
+  "modules": ["./agent-row.ts"],
   "hooks": {
     "SessionStart": [
       {

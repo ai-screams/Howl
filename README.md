@@ -104,9 +104,14 @@ Enable individually via `features` in `~/.claude/hud/config.json` or `/howl:cust
 
 ### Subagent Panel Rows 🧵
 
-Howl can also render the agent panel rows below the prompt, replacing the default
+Howl also draws the agent panel rows below the prompt, replacing the default
 `name · description · token count` with a per-row context percentage computed from
-each task's own model window:
+each task's own model window. The plugin does this with a mod, so there is nothing to
+configure beyond installing the binary. What you get depends on your Claude Code version:
+
+- **2.1.326 and later** — drawn by the plugin's mod, in the terminal
+- **2.1.323 to 2.1.325** — default rows: these versions ignore `subagentStatusLine` and have no mod hook for the rows
+- **2.1.322 and earlier** — add the setting below to `~/.claude/settings.json` yourself
 
 ```json
 {
@@ -116,6 +121,9 @@ each task's own model window:
   }
 }
 ```
+
+Remove that setting once you are on 2.1.326 or later. It still takes precedence over the
+mod there, and Claude Code warns at startup that it is deprecated.
 
 Each row shows `name · status · ctx% (tokens) · E:effort`, omitting any segment Claude
 Code did not supply and dropping trailing segments rather than wrapping. Rows Howl has
@@ -419,6 +427,9 @@ howl/
 │   ├── subagent.go          # Agent panel rows (howl --subagent)
 │   ├── *_test.go            # Unit, integration, schema, fuzz and site tests
 │   └── testdata/            # Captured payload and JSONL fixtures
+├── hooks/
+│   ├── hooks.json           # Session-start sync, agent-row mod
+│   └── agent-row.ts         # Agent panel mod, calls howl --subagent
 ├── site/                    # Product page, deployed to ai-scream.ai/Howl/
 ├── docs/
 │   ├── brand.md             # Icon, colors, sizes, mascots

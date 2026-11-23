@@ -15,6 +15,7 @@ make build         # CGO_ENABLED=0 go build → build/howl
 make install       # build + copy to ~/.claude/hud/howl
 make unit-test     # go test ./... -v -cover -coverprofile=coverage.out
 make test          # smoke test: pipes sample JSON into built binary
+make plugin-test   # claude plugin test: the agent-row mod (local only, needs CC 2.1.326+)
 make lint          # golangci-lint run
 make fmt           # go fmt ./...
 make fmt-docs      # prettier on *.md *.yaml *.yml
@@ -57,7 +58,16 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 - **transcript.go** — `ParseTranscript()`: tail-reads last 64KB/100 lines of JSONL, extracts top-5 tools + running agents
 - **account.go** — `GetAccountInfo()`: reads `~/.claude.json` for email display
 - **update.go** — `ReadUpdateNotice()`: reads `~/.claude/hud/.update-available`, written by the plugin's session-start hook. Never fetches — the render path stays offline
-- **subagent.go** — `RenderSubagentRows()`: serves the `subagentStatusLine` setting via `howl --subagent`. Separate input schema (camelCase field names, unlike the main snake_case one); writes one `{"id","content"}` JSON line per agent-panel row it overrides
+- **subagent.go** — `RenderSubagentRows()`: serves `howl --subagent`, called by the plugin's agent-row mod (and by a hand-written `subagentStatusLine` setting on CC 2.1.322 and earlier). Separate input schema (camelCase field names, unlike the main snake_case one); writes one `{"id","content"}` JSON line per agent-panel row it overrides
+
+### hooks/agent-row.ts — the only non-Go runtime code
+
+A mod (Claude Code hooks module, named under `modules` in `hooks/hooks.json`) that hooks `ui.render` on `AgentRow`, CC 2.1.326+. It holds no rendering: it pipes one row to `howl --subagent` in the `subagentStatusLine` schema and sets `body` to what comes back, so segment changes stay in `subagent.go`.
+
+- **An empty `body` hides the row.** No content means `next(e)`.
+- **`status` is `props.taskStatus`**, not `props.status`: the schema has always carried the task's status.
+- **A `body` that arrives set wins**: a `subagentStatusLine` setting already drew that row.
+- **Never run `claude --plugin-dir .` from this checkout.** The SessionStart hook sees a new plugin data dir and runs `install.sh` over the installed binary, and the engine writes a `tsconfig.json` at the root. Copy `.claude-plugin/` and the module into a scratch directory with a `hooks.json` that names only the module.
 
 ### Test Conventions
 
@@ -66,6 +76,7 @@ All business logic lives in `internal/` with no sub-packages. The dependency gra
 - **git_test.go** creates real git repos in `t.TempDir()`
 - **fuzz_test.go** fuzzes `visibleLen`, `fitParts`, `RenderSubagentRow`, and `ReadUpdateNotice` — the escape-sequence and truncation paths where byte/rune and index mistakes hide
 - **cmd/howl/main_test.go** does E2E binary execution: builds the binary, pipes JSON via `exec.Command`
+- **plugin_test.go** checks that every module `hooks/hooks.json` names exists. CI has no Claude Code, so it does not run `hooks/agent-row.test.ts`; run `make plugin-test` after touching the mod
 - **integration_test.go** tests the full JSON → Unmarshal → ComputeMetrics → Render pipeline
 - **Re-introduce the bug to prove a new test catches it.** Two regression tests here passed with their bug still present: one chose multi-byte inputs that were also long in runes, so a byte-vs-rune slice worked by accident (the trigger needs byte length over the bound and rune length under it); the other stripped ANSI before asserting, which erased the injected escape it was looking for.
 
@@ -114,7 +125,7 @@ prettier (go-prettier) skips paths listed in `.git/info/exclude`, so an excluded
 
 The repo is both the marketplace (`.claude-plugin/marketplace.json`) and the plugin it serves. Two platform constraints shape the whole install flow:
 
-- **A plugin cannot set `statusLine`.** Only `agent` and `subagentStatusLine` are allowed in a plugin's own `settings.json`, which is why `/howl:setup` exists to write the user's settings. `subagentStatusLine` ships from the plugin and needs no setup.
+- **A plugin cannot set `statusLine`.** A plugin's own `settings.json` does not accept that key, which is why `/howl:setup` exists to write the user's settings. Agent rows ship as a mod and need no setup. Do not bring back a plugin `settings.json` with `subagentStatusLine`: CC 2.1.323–2.1.325 ignore it, and 2.1.326+ warns at every start and lets it shadow the mod.
 - **Auto-update is off by default for third-party marketplaces.** Without the `/plugin` → Marketplaces toggle, an install stays on its original version forever. The status line's own update badge exists to cover users who never find it.
 
 `scripts/sync-binary.sh` runs at SessionStart; its binary-sync step must stay a no-op with no download when in sync, and its only network call is the once-a-day release check for the update badge, never from the render path. Preset contents live in `presets` in `internal/config.go` — doc copies of them drifted for months; read the source.
